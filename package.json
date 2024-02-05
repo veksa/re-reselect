@@ -1,6 +1,6 @@
 {
   "name": "@veksa/re-reselect",
-  "version": "5.1.0-delta3",
+  "version": "5.1.0-delta5",
   "description": "Enhance Reselect selectors with deeper memoization and cache management",
   "main": "./dist/cjs/reReselect.cjs",
   "module": "./dist/reReselect.legacy-esm.js",
@@ -94,5 +94,6 @@
     "**/*.md": [
       "prettier --write"
     ]
-  }
+  },
+  "packageManager": "yarn@4.1.0"
 }
