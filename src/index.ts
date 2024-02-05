@@ -1,6 +1,20 @@
 export {createCachedSelector} from './createCachedSelector';
 export {createStructuredCachedSelector} from './createStructuredCachedSelector';
 
+export {ICacheObject} from './cache/cache.interface';
+
+export {
+  Selector,
+  ParametricSelector,
+  CreateSelectorInstance,
+  KeySelector,
+  KeySelectorCreator,
+  OutputCachedSelector,
+  OutputParametricCachedSelector,
+  ParametricKeySelector,
+  ParametricKeySelectorCreator,
+} from './selector.interface';
+
 // Cache objects
 export {FlatObjectCache} from './cache/FlatObjectCache';
 export {FifoObjectCache} from './cache/FifoObjectCache';
