@@ -1,4 +1,4 @@
-import {createSelectorCreator, lruMemoize} from 'reselect';
+import {createSelectorCreator, lruMemoize} from '@veksa/reselect';
 import {createCachedSelector, KeySelector} from '../index';
 
 function assertType<T>(value: T): T {

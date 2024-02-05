@@ -1,4 +1,4 @@
-import {createSelector} from 'reselect';
+import {createSelector} from '@veksa/reselect';
 type $Values<T> = T[keyof T];
 
 export type Selector<S, R> = (state: S) => R;

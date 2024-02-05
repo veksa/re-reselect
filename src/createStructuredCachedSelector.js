@@ -1,4 +1,4 @@
-import {createStructuredSelector} from 'reselect';
+import {createStructuredSelector} from '@veksa/reselect';
 import createCachedSelector from './createCachedSelector';
 
 function createStructuredCachedSelector(selectors) {

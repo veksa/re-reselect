@@ -1,4 +1,4 @@
-import {createSelector} from 'reselect';
+import {createSelector} from '@veksa/reselect';
 import FlatObjectCache from './cache/FlatObjectCache';
 
 const defaultCacheCreator = FlatObjectCache;

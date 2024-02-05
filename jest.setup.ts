@@ -1,4 +1,4 @@
-import {setGlobalDevModeChecks} from 'reselect';
+import {setGlobalDevModeChecks} from '@veksa/reselect';
 
 beforeAll(() => {
   setGlobalDevModeChecks({
