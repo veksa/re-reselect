@@ -1,7 +1,7 @@
-import type {ICacheObject} from '../../index';
-import fillCacheWith from './fillCacheWith';
+import type {ICacheObject} from '../cache.interface';
+import {fillCacheWith} from './fillCacheWith';
 
-function testMapCacheKeyBehavior(makeCacheObject: () => ICacheObject) {
+export function testMapCacheKeyBehavior(makeCacheObject: () => ICacheObject) {
   describe('cacheKey', () => {
     describe('isValidCacheKey method', () => {
       it("doesn't not exist", () => {
@@ -22,5 +22,3 @@ function testMapCacheKeyBehavior(makeCacheObject: () => ICacheObject) {
     });
   });
 }
-
-export default testMapCacheKeyBehavior;

@@ -1,7 +1,7 @@
-import type {ICacheObject} from '../../index';
-import fillCacheWith from './fillCacheWith';
+import type {ICacheObject} from '../cache.interface';
+import {fillCacheWith} from './fillCacheWith';
 
-function testBasicBehavior(makeCacheObject: () => ICacheObject) {
+export function testBasicBehavior(makeCacheObject: () => ICacheObject) {
   describe('Cache basic behavior', () => {
     it('returns cached value', () => {
       const cache = makeCacheObject();
@@ -39,5 +39,3 @@ function testBasicBehavior(makeCacheObject: () => ICacheObject) {
     });
   });
 }
-
-export default testBasicBehavior;

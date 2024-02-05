@@ -1,87 +1,20 @@
 import {createSelector} from '@veksa/reselect';
-type $Values<T> = T[keyof T];
+import {FlatObjectCache} from './cache/FlatObjectCache';
+import {
+  OutputCachedSelector,
+  OutputParametricCachedSelector,
+  ParametricSelector,
+  Selector,
+} from './selector.interface';
 
-export type Selector<S, R> = (state: S) => R;
-export type ParametricSelector<S, P, R> = (
-  state: S,
-  props: P,
-  ...args: any[]
-) => R;
+const defaultCacheCreator = FlatObjectCache;
+const defaultCacheKeyValidator = () => true;
 
-export type KeySelector<S> = (state: S, ...args: any[]) => any;
-export type ParametricKeySelector<S, P> = (
-  state: S,
-  props: P,
-  ...args: any[]
-) => any;
-
-export type OutputSelector<S, R, C, D> = Selector<S, R> & {
-  resultFunc: C;
-  dependencies: D;
-  recomputations: () => number;
-  resetRecomputations: () => number;
-};
-export type OutputParametricSelector<S, P, R, C, D> = ParametricSelector<
-  S,
-  P,
-  R
-> & {
-  resultFunc: C;
-  dependencies: D;
-  recomputations: () => number;
-  resetRecomputations: () => number;
-};
-
-export type CreateSelectorInstance = Omit<typeof createSelector, 'clearCache'>;
-
-type Options<S, C, D> = {
-  selectorCreator?: CreateSelectorInstance;
-  cacheObject?: ICacheObject;
-  keySelector?: KeySelector<S>;
-  keySelectorCreator?: KeySelectorCreator<S, C, D>;
-};
-
-type ParametricOptions<S, P, C, D> = {
-  selectorCreator?: CreateSelectorInstance;
-  cacheObject?: ICacheObject;
-  keySelector?: ParametricKeySelector<S, P>;
-  keySelectorCreator?: ParametricKeySelectorCreator<S, P, C, D>;
-};
-
-export type OutputCachedSelector<S, R, C, D> = (
-  options: KeySelector<S> | Options<S, C, D>
-) => OutputSelector<S, R, C, D> & {
-  getMatchingSelector: (state: S, ...args: any[]) => OutputSelector<S, R, C, D>;
-  removeMatchingSelector: (state: S, ...args: any[]) => void;
-  clearCache: () => void;
-  cache: ICacheObject;
-  keySelector: KeySelector<S>;
-};
-
-export type OutputParametricCachedSelector<S, P, R, C, D> = (
-  options: ParametricKeySelector<S, P> | ParametricOptions<S, P, C, D>
-) => OutputParametricSelector<S, P, R, C, D> & {
-  getMatchingSelector: (
-    state: S,
-    props: P,
-    ...args: any[]
-  ) => OutputParametricSelector<S, P, R, C, D>;
-  removeMatchingSelector: (state: S, props: P, ...args: any[]) => void;
-  clearCache: () => void;
-  cache: ICacheObject;
-  keySelector: ParametricKeySelector<S, P>;
-};
-
-/*
- * Homogeneous selectors, parameter types
- */
-
-/* one selector */
-declare function createCachedSelector<S, R1, T>(
+export function createCachedSelector<S, R1, T>(
   selector: Selector<S, R1>,
   combiner: (res: R1) => T
 ): OutputCachedSelector<S, T, (res: R1) => T, [Selector<S, R1>]>;
-declare function createCachedSelector<S, P, R1, T>(
+export function createCachedSelector<S, P, R1, T>(
   selector: ParametricSelector<S, P, R1>,
   combiner: (res: R1) => T
 ): OutputParametricCachedSelector<
@@ -92,8 +25,7 @@ declare function createCachedSelector<S, P, R1, T>(
   [ParametricSelector<S, P, R1>]
 >;
 
-/* two selectors */
-declare function createCachedSelector<S, R1, R2, T>(
+export function createCachedSelector<S, R1, R2, T>(
   selector1: Selector<S, R1>,
   selector2: Selector<S, R2>,
   combiner: (res1: R1, res2: R2) => T
@@ -103,7 +35,7 @@ declare function createCachedSelector<S, R1, R2, T>(
   (res1: R1, res2: R2) => T,
   [Selector<S, R1>, Selector<S, R2>]
 >;
-declare function createCachedSelector<S, P, R1, R2, T>(
+export function createCachedSelector<S, P, R1, R2, T>(
   selector1: ParametricSelector<S, P, R1>,
   selector2: ParametricSelector<S, P, R2>,
   combiner: (res1: R1, res2: R2) => T
@@ -115,8 +47,7 @@ declare function createCachedSelector<S, P, R1, R2, T>(
   [ParametricSelector<S, P, R1>, ParametricSelector<S, P, R2>]
 >;
 
-/* three selectors */
-declare function createCachedSelector<S, R1, R2, R3, T>(
+export function createCachedSelector<S, R1, R2, R3, T>(
   selector1: Selector<S, R1>,
   selector2: Selector<S, R2>,
   selector3: Selector<S, R3>,
@@ -127,7 +58,7 @@ declare function createCachedSelector<S, R1, R2, R3, T>(
   (res1: R1, res2: R2, res3: R3) => T,
   [Selector<S, R1>, Selector<S, R2>, Selector<S, R3>]
 >;
-declare function createCachedSelector<S, P, R1, R2, R3, T>(
+export function createCachedSelector<S, P, R1, R2, R3, T>(
   selector1: ParametricSelector<S, P, R1>,
   selector2: ParametricSelector<S, P, R2>,
   selector3: ParametricSelector<S, P, R3>,
@@ -144,8 +75,7 @@ declare function createCachedSelector<S, P, R1, R2, R3, T>(
   ]
 >;
 
-/* four selectors */
-declare function createCachedSelector<S, R1, R2, R3, R4, T>(
+export function createCachedSelector<S, R1, R2, R3, R4, T>(
   selector1: Selector<S, R1>,
   selector2: Selector<S, R2>,
   selector3: Selector<S, R3>,
@@ -157,7 +87,7 @@ declare function createCachedSelector<S, R1, R2, R3, R4, T>(
   (res1: R1, res2: R2, res3: R3, res4: R4) => T,
   [Selector<S, R1>, Selector<S, R2>, Selector<S, R3>, Selector<S, R4>]
 >;
-declare function createCachedSelector<S, P, R1, R2, R3, R4, T>(
+export function createCachedSelector<S, P, R1, R2, R3, R4, T>(
   selector1: ParametricSelector<S, P, R1>,
   selector2: ParametricSelector<S, P, R2>,
   selector3: ParametricSelector<S, P, R3>,
@@ -176,8 +106,7 @@ declare function createCachedSelector<S, P, R1, R2, R3, R4, T>(
   ]
 >;
 
-/* five selectors */
-declare function createCachedSelector<S, R1, R2, R3, R4, R5, T>(
+export function createCachedSelector<S, R1, R2, R3, R4, R5, T>(
   selector1: Selector<S, R1>,
   selector2: Selector<S, R2>,
   selector3: Selector<S, R3>,
@@ -196,7 +125,7 @@ declare function createCachedSelector<S, R1, R2, R3, R4, R5, T>(
     Selector<S, R5>,
   ]
 >;
-declare function createCachedSelector<S, P, R1, R2, R3, R4, R5, T>(
+export function createCachedSelector<S, P, R1, R2, R3, R4, R5, T>(
   selector1: ParametricSelector<S, P, R1>,
   selector2: ParametricSelector<S, P, R2>,
   selector3: ParametricSelector<S, P, R3>,
@@ -217,8 +146,7 @@ declare function createCachedSelector<S, P, R1, R2, R3, R4, R5, T>(
   ]
 >;
 
-/* six selectors */
-declare function createCachedSelector<S, R1, R2, R3, R4, R5, R6, T>(
+export function createCachedSelector<S, R1, R2, R3, R4, R5, R6, T>(
   selector1: Selector<S, R1>,
   selector2: Selector<S, R2>,
   selector3: Selector<S, R3>,
@@ -239,7 +167,7 @@ declare function createCachedSelector<S, R1, R2, R3, R4, R5, R6, T>(
     Selector<S, R6>,
   ]
 >;
-declare function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, T>(
+export function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, T>(
   selector1: ParametricSelector<S, P, R1>,
   selector2: ParametricSelector<S, P, R2>,
   selector3: ParametricSelector<S, P, R3>,
@@ -262,8 +190,7 @@ declare function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, T>(
   ]
 >;
 
-/* seven selectors */
-declare function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, T>(
+export function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, T>(
   selector1: Selector<S, R1>,
   selector2: Selector<S, R2>,
   selector3: Selector<S, R3>,
@@ -294,7 +221,7 @@ declare function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, T>(
     Selector<S, R7>,
   ]
 >;
-declare function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, R7, T>(
+export function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, R7, T>(
   selector1: ParametricSelector<S, P, R1>,
   selector2: ParametricSelector<S, P, R2>,
   selector3: ParametricSelector<S, P, R3>,
@@ -327,8 +254,7 @@ declare function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, R7, T>(
   ]
 >;
 
-/* eight selectors */
-declare function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, R8, T>(
+export function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, R8, T>(
   selector1: Selector<S, R1>,
   selector2: Selector<S, R2>,
   selector3: Selector<S, R3>,
@@ -371,7 +297,7 @@ declare function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, R8, T>(
     Selector<S, R8>,
   ]
 >;
-declare function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, R7, R8, T>(
+export function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, R7, R8, T>(
   selector1: ParametricSelector<S, P, R1>,
   selector2: ParametricSelector<S, P, R2>,
   selector3: ParametricSelector<S, P, R3>,
@@ -416,8 +342,7 @@ declare function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, R7, R8, T>(
   ]
 >;
 
-/* nine selectors */
-declare function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, R8, R9, T>(
+export function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, R8, R9, T>(
   selector1: Selector<S, R1>,
   selector2: Selector<S, R2>,
   selector3: Selector<S, R3>,
@@ -464,7 +389,7 @@ declare function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, R8, R9, T>(
     Selector<S, R9>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S,
   P,
   R1,
@@ -526,8 +451,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* ten selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S,
   R1,
   R2,
@@ -591,7 +515,7 @@ declare function createCachedSelector<
     Selector<S, R10>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S,
   P,
   R1,
@@ -658,8 +582,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* eleven selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S,
   R1,
   R2,
@@ -728,7 +651,7 @@ declare function createCachedSelector<
     Selector<S, R11>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S,
   P,
   R1,
@@ -800,8 +723,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* twelve selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S,
   R1,
   R2,
@@ -875,7 +797,7 @@ declare function createCachedSelector<
     Selector<S, R12>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S,
   P,
   R1,
@@ -952,16 +874,12 @@ declare function createCachedSelector<
   ]
 >;
 
-/*
- * Homogeneous selectors, array argument
- */
-
-/* one selector */
-declare function createCachedSelector<S, R1, T>(
+// @ts-ignore
+export function createCachedSelector<S, R1, T>(
   selectors: [Selector<S, R1>],
   combiner: (res: R1) => T
 ): OutputCachedSelector<S, T, (res: R1) => T, [Selector<S, R1>]>;
-declare function createCachedSelector<S, P, R1, T>(
+export function createCachedSelector<S, P, R1, T>(
   selectors: [ParametricSelector<S, P, R1>],
   combiner: (res: R1) => T
 ): OutputParametricCachedSelector<
@@ -972,8 +890,7 @@ declare function createCachedSelector<S, P, R1, T>(
   [ParametricSelector<S, P, R1>]
 >;
 
-/* two selectors */
-declare function createCachedSelector<S, R1, R2, T>(
+export function createCachedSelector<S, R1, R2, T>(
   selectors: [Selector<S, R1>, Selector<S, R2>],
   combiner: (res1: R1, res2: R2) => T
 ): OutputCachedSelector<
@@ -982,7 +899,7 @@ declare function createCachedSelector<S, R1, R2, T>(
   (res1: R1, res2: R2) => T,
   [Selector<S, R1>, Selector<S, R2>]
 >;
-declare function createCachedSelector<S, P, R1, R2, T>(
+export function createCachedSelector<S, P, R1, R2, T>(
   selectors: [ParametricSelector<S, P, R1>, ParametricSelector<S, P, R2>],
   combiner: (res1: R1, res2: R2) => T
 ): OutputParametricCachedSelector<
@@ -993,8 +910,7 @@ declare function createCachedSelector<S, P, R1, R2, T>(
   [ParametricSelector<S, P, R1>, ParametricSelector<S, P, R2>]
 >;
 
-/* three selectors */
-declare function createCachedSelector<S, R1, R2, R3, T>(
+export function createCachedSelector<S, R1, R2, R3, T>(
   selectors: [Selector<S, R1>, Selector<S, R2>, Selector<S, R3>],
   combiner: (res1: R1, res2: R2, res3: R3) => T
 ): OutputCachedSelector<
@@ -1003,7 +919,7 @@ declare function createCachedSelector<S, R1, R2, R3, T>(
   (res1: R1, res2: R2, res3: R3) => T,
   [Selector<S, R1>, Selector<S, R2>, Selector<S, R3>]
 >;
-declare function createCachedSelector<S, P, R1, R2, R3, T>(
+export function createCachedSelector<S, P, R1, R2, R3, T>(
   selectors: [
     ParametricSelector<S, P, R1>,
     ParametricSelector<S, P, R2>,
@@ -1022,8 +938,7 @@ declare function createCachedSelector<S, P, R1, R2, R3, T>(
   ]
 >;
 
-/* four selectors */
-declare function createCachedSelector<S, R1, R2, R3, R4, T>(
+export function createCachedSelector<S, R1, R2, R3, R4, T>(
   selectors: [
     Selector<S, R1>,
     Selector<S, R2>,
@@ -1037,7 +952,7 @@ declare function createCachedSelector<S, R1, R2, R3, R4, T>(
   (res1: R1, res2: R2, res3: R3, res4: R4) => T,
   [Selector<S, R1>, Selector<S, R2>, Selector<S, R3>, Selector<S, R4>]
 >;
-declare function createCachedSelector<S, P, R1, R2, R3, R4, T>(
+export function createCachedSelector<S, P, R1, R2, R3, R4, T>(
   selectors: [
     ParametricSelector<S, P, R1>,
     ParametricSelector<S, P, R2>,
@@ -1058,8 +973,7 @@ declare function createCachedSelector<S, P, R1, R2, R3, R4, T>(
   ]
 >;
 
-/* five selectors */
-declare function createCachedSelector<S, R1, R2, R3, R4, R5, T>(
+export function createCachedSelector<S, R1, R2, R3, R4, R5, T>(
   selectors: [
     Selector<S, R1>,
     Selector<S, R2>,
@@ -1080,7 +994,7 @@ declare function createCachedSelector<S, R1, R2, R3, R4, R5, T>(
     Selector<S, R5>,
   ]
 >;
-declare function createCachedSelector<S, P, R1, R2, R3, R4, R5, T>(
+export function createCachedSelector<S, P, R1, R2, R3, R4, R5, T>(
   selectors: [
     ParametricSelector<S, P, R1>,
     ParametricSelector<S, P, R2>,
@@ -1103,8 +1017,7 @@ declare function createCachedSelector<S, P, R1, R2, R3, R4, R5, T>(
   ]
 >;
 
-/* six selectors */
-declare function createCachedSelector<S, R1, R2, R3, R4, R5, R6, T>(
+export function createCachedSelector<S, R1, R2, R3, R4, R5, R6, T>(
   selectors: [
     Selector<S, R1>,
     Selector<S, R2>,
@@ -1127,7 +1040,7 @@ declare function createCachedSelector<S, R1, R2, R3, R4, R5, R6, T>(
     Selector<S, R6>,
   ]
 >;
-declare function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, T>(
+export function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, T>(
   selectors: [
     ParametricSelector<S, P, R1>,
     ParametricSelector<S, P, R2>,
@@ -1152,8 +1065,7 @@ declare function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, T>(
   ]
 >;
 
-/* seven selectors */
-declare function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, T>(
+export function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, T>(
   selectors: [
     Selector<S, R1>,
     Selector<S, R2>,
@@ -1186,7 +1098,7 @@ declare function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, T>(
     Selector<S, R7>,
   ]
 >;
-declare function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, R7, T>(
+export function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, R7, T>(
   selectors: [
     ParametricSelector<S, P, R1>,
     ParametricSelector<S, P, R2>,
@@ -1221,8 +1133,7 @@ declare function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, R7, T>(
   ]
 >;
 
-/* eight selectors */
-declare function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, R8, T>(
+export function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, R8, T>(
   selectors: [
     Selector<S, R1>,
     Selector<S, R2>,
@@ -1267,7 +1178,7 @@ declare function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, R8, T>(
     Selector<S, R8>,
   ]
 >;
-declare function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, R7, R8, T>(
+export function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, R7, R8, T>(
   selectors: [
     ParametricSelector<S, P, R1>,
     ParametricSelector<S, P, R2>,
@@ -1314,8 +1225,7 @@ declare function createCachedSelector<S, P, R1, R2, R3, R4, R5, R6, R7, R8, T>(
   ]
 >;
 
-/* nine selectors */
-declare function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, R8, R9, T>(
+export function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, R8, R9, T>(
   selectors: [
     Selector<S, R1>,
     Selector<S, R2>,
@@ -1364,7 +1274,7 @@ declare function createCachedSelector<S, R1, R2, R3, R4, R5, R6, R7, R8, R9, T>(
     Selector<S, R9>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S,
   P,
   R1,
@@ -1428,8 +1338,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* ten selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S,
   R1,
   R2,
@@ -1495,7 +1404,7 @@ declare function createCachedSelector<
     Selector<S, R10>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S,
   P,
   R1,
@@ -1564,8 +1473,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* eleven selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S,
   R1,
   R2,
@@ -1636,7 +1544,7 @@ declare function createCachedSelector<
     Selector<S, R11>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S,
   P,
   R1,
@@ -1710,8 +1618,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* twelve selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S,
   R1,
   R2,
@@ -1787,7 +1694,7 @@ declare function createCachedSelector<
     Selector<S, R12>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S,
   P,
   R1,
@@ -1866,16 +1773,11 @@ declare function createCachedSelector<
   ]
 >;
 
-/*
- * Heterogeneous selectors, parameter types
- */
-
-/* one selector */
-declare function createCachedSelector<S1, R1, T>(
+export function createCachedSelector<S1, R1, T>(
   selector: Selector<S1, R1>,
   combiner: (res: R1) => T
 ): OutputCachedSelector<S1, T, (res: R1) => T, [Selector<S1, R1>]>;
-declare function createCachedSelector<S1, P1, R1, T>(
+export function createCachedSelector<S1, P1, R1, T>(
   selector: ParametricSelector<S1, P1, R1>,
   combiner: (res: R1) => T
 ): OutputParametricCachedSelector<
@@ -1886,8 +1788,7 @@ declare function createCachedSelector<S1, P1, R1, T>(
   [ParametricSelector<S1, P1, R1>]
 >;
 
-/* two selectors */
-declare function createCachedSelector<S1, S2, R1, R2, T>(
+export function createCachedSelector<S1, S2, R1, R2, T>(
   selector1: Selector<S1, R1>,
   selector2: Selector<S2, R2>,
   combiner: (res1: R1, res2: R2) => T
@@ -1897,7 +1798,7 @@ declare function createCachedSelector<S1, S2, R1, R2, T>(
   (res1: R1, res2: R2) => T,
   [Selector<S1, R1>, Selector<S2, R2>]
 >;
-declare function createCachedSelector<S1, S2, P1, P2, R1, R2, T>(
+export function createCachedSelector<S1, S2, P1, P2, R1, R2, T>(
   selector1: ParametricSelector<S1, P1, R1>,
   selector2: ParametricSelector<S2, P2, R2>,
   combiner: (res1: R1, res2: R2) => T
@@ -1909,8 +1810,7 @@ declare function createCachedSelector<S1, S2, P1, P2, R1, R2, T>(
   [ParametricSelector<S1, P1, R1>, ParametricSelector<S2, P2, R2>]
 >;
 
-/* three selectors */
-declare function createCachedSelector<S1, S2, S3, R1, R2, R3, T>(
+export function createCachedSelector<S1, S2, S3, R1, R2, R3, T>(
   selector1: Selector<S1, R1>,
   selector2: Selector<S2, R2>,
   selector3: Selector<S3, R3>,
@@ -1921,7 +1821,7 @@ declare function createCachedSelector<S1, S2, S3, R1, R2, R3, T>(
   (res1: R1, res2: R2, res3: R3) => T,
   [Selector<S1, R1>, Selector<S2, R2>, Selector<S3, R3>]
 >;
-declare function createCachedSelector<S1, S2, S3, P1, P2, P3, R1, R2, R3, T>(
+export function createCachedSelector<S1, S2, S3, P1, P2, P3, R1, R2, R3, T>(
   selector1: ParametricSelector<S1, P1, R1>,
   selector2: ParametricSelector<S2, P2, R2>,
   selector3: ParametricSelector<S3, P3, R3>,
@@ -1938,8 +1838,7 @@ declare function createCachedSelector<S1, S2, S3, P1, P2, P3, R1, R2, R3, T>(
   ]
 >;
 
-/* four selectors */
-declare function createCachedSelector<S1, S2, S3, S4, R1, R2, R3, R4, T>(
+export function createCachedSelector<S1, S2, S3, S4, R1, R2, R3, R4, T>(
   selector1: Selector<S1, R1>,
   selector2: Selector<S2, R2>,
   selector3: Selector<S3, R3>,
@@ -1951,7 +1850,7 @@ declare function createCachedSelector<S1, S2, S3, S4, R1, R2, R3, R4, T>(
   (res1: R1, res2: R2, res3: R3, res4: R4) => T,
   [Selector<S1, R1>, Selector<S2, R2>, Selector<S3, R3>, Selector<S4, R4>]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -1984,20 +1883,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* five selectors */
-declare function createCachedSelector<
-  S1,
-  S2,
-  S3,
-  S4,
-  S5,
-  R1,
-  R2,
-  R3,
-  R4,
-  R5,
-  T,
->(
+export function createCachedSelector<S1, S2, S3, S4, S5, R1, R2, R3, R4, R5, T>(
   selector1: Selector<S1, R1>,
   selector2: Selector<S2, R2>,
   selector3: Selector<S3, R3>,
@@ -2016,7 +1902,7 @@ declare function createCachedSelector<
     Selector<S5, R5>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -2054,8 +1940,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* six selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -2090,7 +1975,7 @@ declare function createCachedSelector<
     Selector<S6, R6>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -2133,8 +2018,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* seven selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -2181,7 +2065,7 @@ declare function createCachedSelector<
     Selector<S7, R7>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -2237,8 +2121,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* eight selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -2299,7 +2182,7 @@ declare function createCachedSelector<
     Selector<S8, R8>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -2370,8 +2253,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* nine selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -2438,7 +2320,7 @@ declare function createCachedSelector<
     Selector<S9, R9>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -2516,8 +2398,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* ten selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -2590,7 +2471,7 @@ declare function createCachedSelector<
     Selector<S10, R10>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -2675,8 +2556,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* eleven selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -2755,7 +2635,7 @@ declare function createCachedSelector<
     Selector<S11, R11>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -2847,8 +2727,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* twelve selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -2933,7 +2812,7 @@ declare function createCachedSelector<
     Selector<S12, R12>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -3032,16 +2911,11 @@ declare function createCachedSelector<
   ]
 >;
 
-/*
- * Heterogeneous selectors, array argument
- */
-
-/* one selector */
-declare function createCachedSelector<S1, R1, T>(
+export function createCachedSelector<S1, R1, T>(
   selectors: [Selector<S1, R1>],
   combiner: (res: R1) => T
 ): OutputCachedSelector<S1, T, (res: R1) => T, [Selector<S1, R1>]>;
-declare function createCachedSelector<S1, P1, R1, T>(
+export function createCachedSelector<S1, P1, R1, T>(
   selectors: [ParametricSelector<S1, P1, R1>],
   combiner: (res: R1) => T
 ): OutputParametricCachedSelector<
@@ -3052,8 +2926,7 @@ declare function createCachedSelector<S1, P1, R1, T>(
   [ParametricSelector<S1, P1, R1>]
 >;
 
-/* two selectors */
-declare function createCachedSelector<S1, S2, R1, R2, T>(
+export function createCachedSelector<S1, S2, R1, R2, T>(
   selectors: [Selector<S1, R1>, Selector<S2, R2>],
   combiner: (res1: R1, res2: R2) => T
 ): OutputCachedSelector<
@@ -3062,7 +2935,7 @@ declare function createCachedSelector<S1, S2, R1, R2, T>(
   (res1: R1, res2: R2) => T,
   [Selector<S1, R1>, Selector<S2, R2>]
 >;
-declare function createCachedSelector<S1, S2, P1, P2, R1, R2, T>(
+export function createCachedSelector<S1, S2, P1, P2, R1, R2, T>(
   selectors: [ParametricSelector<S1, P1, R1>, ParametricSelector<S2, P2, R2>],
   combiner: (res1: R1, res2: R2) => T
 ): OutputParametricCachedSelector<
@@ -3073,8 +2946,7 @@ declare function createCachedSelector<S1, S2, P1, P2, R1, R2, T>(
   [ParametricSelector<S1, P1, R1>, ParametricSelector<S2, P2, R2>]
 >;
 
-/* three selectors */
-declare function createCachedSelector<S1, S2, S3, R1, R2, R3, T>(
+export function createCachedSelector<S1, S2, S3, R1, R2, R3, T>(
   selectors: [Selector<S1, R1>, Selector<S2, R2>, Selector<S3, R3>],
   combiner: (res1: R1, res2: R2, res3: R3) => T
 ): OutputCachedSelector<
@@ -3083,7 +2955,7 @@ declare function createCachedSelector<S1, S2, S3, R1, R2, R3, T>(
   (res1: R1, res2: R2, res3: R3) => T,
   [Selector<S1, R1>, Selector<S2, R2>, Selector<S3, R3>]
 >;
-declare function createCachedSelector<S1, S2, S3, P1, P2, P3, R1, R2, R3, T>(
+export function createCachedSelector<S1, S2, S3, P1, P2, P3, R1, R2, R3, T>(
   selectors: [
     ParametricSelector<S1, P1, R1>,
     ParametricSelector<S2, P2, R2>,
@@ -3102,8 +2974,7 @@ declare function createCachedSelector<S1, S2, S3, P1, P2, P3, R1, R2, R3, T>(
   ]
 >;
 
-/* four selectors */
-declare function createCachedSelector<S1, S2, S3, S4, R1, R2, R3, R4, T>(
+export function createCachedSelector<S1, S2, S3, S4, R1, R2, R3, R4, T>(
   selectors: [
     Selector<S1, R1>,
     Selector<S2, R2>,
@@ -3117,7 +2988,7 @@ declare function createCachedSelector<S1, S2, S3, S4, R1, R2, R3, R4, T>(
   (res1: R1, res2: R2, res3: R3, res4: R4) => T,
   [Selector<S1, R1>, Selector<S2, R2>, Selector<S3, R3>, Selector<S4, R4>]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -3152,20 +3023,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* five selectors */
-declare function createCachedSelector<
-  S1,
-  S2,
-  S3,
-  S4,
-  S5,
-  R1,
-  R2,
-  R3,
-  R4,
-  R5,
-  T,
->(
+export function createCachedSelector<S1, S2, S3, S4, S5, R1, R2, R3, R4, R5, T>(
   selectors: [
     Selector<S1, R1>,
     Selector<S2, R2>,
@@ -3186,7 +3044,7 @@ declare function createCachedSelector<
     Selector<S5, R5>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -3226,8 +3084,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* six selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -3264,7 +3121,7 @@ declare function createCachedSelector<
     Selector<S6, R6>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -3309,8 +3166,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* seven selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -3359,7 +3215,7 @@ declare function createCachedSelector<
     Selector<S7, R7>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -3417,8 +3273,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* eight selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -3481,7 +3336,7 @@ declare function createCachedSelector<
     Selector<S8, R8>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -3554,8 +3409,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* nine selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -3624,7 +3478,7 @@ declare function createCachedSelector<
     Selector<S9, R9>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -3705,8 +3559,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* ten selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -3781,7 +3634,7 @@ declare function createCachedSelector<
     Selector<S10, R10>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -3868,8 +3721,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* eleven selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -3950,7 +3802,7 @@ declare function createCachedSelector<
     Selector<S11, R11>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -4044,8 +3896,7 @@ declare function createCachedSelector<
   ]
 >;
 
-/* twelve selectors */
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -4132,7 +3983,7 @@ declare function createCachedSelector<
     Selector<S12, R12>,
   ]
 >;
-declare function createCachedSelector<
+export function createCachedSelector<
   S1,
   S2,
   S3,
@@ -4233,14 +4084,11 @@ declare function createCachedSelector<
   ]
 >;
 
-/*
- * Any number of uniform selectors
- */
-declare function createCachedSelector<S, R, T>(
+export function createCachedSelector<S, R, T>(
   selectors: Selector<S, R>[],
   combiner: (...res: R[]) => T
 ): OutputCachedSelector<S, T, (...res: R[]) => T, Selector<S, R>[]>;
-declare function createCachedSelector<S, P, R, T>(
+export function createCachedSelector<S, P, R, T>(
   selectors: ParametricSelector<S, P, R>[],
   combiner: (...res: R[]) => T
 ): OutputParametricCachedSelector<
@@ -4251,115 +4099,84 @@ declare function createCachedSelector<S, P, R, T>(
   ParametricSelector<S, P, R>[]
 >;
 
-export {createCachedSelector};
+export function createCachedSelector(...funcs: Function[]) {
+  return (polymorphicOptions: any) => {
+    const options =
+      typeof polymorphicOptions === 'function'
+        ? {keySelector: polymorphicOptions}
+        : Object.assign({}, polymorphicOptions);
 
-/*
- * createStructuredCachedSelector
- */
+    // https://github.com/reduxjs/reselect/blob/v4.0.0/src/index.js#L54
+    let recomputations = 0;
+    const resultFunc: Function = funcs.pop() as unknown as Function;
+    const dependencies = Array.isArray(funcs[0]) ? funcs[0] : [...funcs];
 
-export function createStructuredCachedSelector<
-  T extends {[key: string]: (state: any) => any},
-  S = $Values<{[K in keyof T]: Parameters<T[K]>[0]}>,
-  R = {[K in keyof T]: ReturnType<T[K]>},
->(
-  selectors: T
-): OutputCachedSelector<
-  S,
-  R,
-  (...args: $Values<R>[]) => R,
-  Selector<S, $Values<R>>[]
->;
+    const resultFuncWithRecomputations = (...args: Function[]) => {
+      recomputations++;
+      return resultFunc(...args);
+    };
+    funcs.push(resultFuncWithRecomputations);
 
-export function createStructuredCachedSelector<
-  T extends {
-    [key: string]: (state: any, props: any, ...args: any[]) => any;
-  },
-  S = $Values<{[K in keyof T]: Parameters<T[K]>[0]}>,
-  P = Exclude<$Values<{[K in keyof T]: Parameters<T[K]>[1]}>, undefined>,
-  R = {[K in keyof T]: ReturnType<T[K]>},
->(
-  selectors: T
-): OutputParametricCachedSelector<
-  S,
-  P,
-  R,
-  (...args: $Values<R>[]) => R,
-  ParametricSelector<S, P, $Values<R>>[]
->;
+    const cache = options.cacheObject || new defaultCacheCreator();
+    const selectorCreator = options.selectorCreator || createSelector;
+    const isValidCacheKey = cache.isValidCacheKey || defaultCacheKeyValidator;
 
-/*
- * Cache objects
- */
-export interface ICacheObject {
-  set(key: any, selectorFn: any): void;
-  get(key: any): any;
-  remove(key: any): void;
-  clear(): void;
-  isValidCacheKey?(key: any): boolean;
+    if (options.keySelectorCreator) {
+      options.keySelector = options.keySelectorCreator({
+        keySelector: options.keySelector,
+        inputSelectors: dependencies,
+        resultFunc,
+      });
+    }
+
+    // Application receives this function
+    const selector = function (...args: Function[]) {
+      const cacheKey = options.keySelector(...args);
+
+      if (isValidCacheKey(cacheKey)) {
+        let cacheResponse = cache.get(cacheKey);
+
+        if (cacheResponse === undefined) {
+          cacheResponse = selectorCreator(...funcs);
+          cache.set(cacheKey, cacheResponse);
+        }
+
+        return cacheResponse(...args);
+      }
+      console.warn(
+        `[re-reselect] Invalid cache key "${cacheKey}" has been returned by keySelector function.`
+      );
+      return undefined;
+    };
+
+    // Further selector methods
+    selector.getMatchingSelector = (...args: Function[]) => {
+      const cacheKey = options.keySelector(...args);
+      // @NOTE It might update cache hit count in LRU-like caches
+      return cache.get(cacheKey);
+    };
+
+    selector.removeMatchingSelector = (...args: Function[]) => {
+      const cacheKey = options.keySelector(...args);
+      cache.remove(cacheKey);
+    };
+
+    selector.clearCache = () => {
+      cache.clear();
+    };
+
+    selector.resultFunc = resultFunc;
+
+    selector.dependencies = dependencies;
+
+    selector.cache = cache;
+
+    selector.recomputations = () => recomputations;
+
+    selector.resetRecomputations = () => (recomputations = 0);
+
+    selector.keySelector = options.keySelector;
+
+    return selector;
+  };
 }
-
-type ObjectCacheKey = string | number;
-
-export class FlatObjectCache implements ICacheObject {
-  set(key: ObjectCacheKey, selectorFn: any): void;
-  get(key: ObjectCacheKey): any;
-  remove(key: ObjectCacheKey): void;
-  clear(): void;
-  isValidCacheKey(key: ObjectCacheKey): boolean;
-}
-
-export class FifoObjectCache implements ICacheObject {
-  constructor(options: {cacheSize: number});
-  set(key: ObjectCacheKey, selectorFn: any): void;
-  get(key: ObjectCacheKey): any;
-  remove(key: ObjectCacheKey): void;
-  clear(): void;
-  isValidCacheKey(key: ObjectCacheKey): boolean;
-}
-
-export class LruObjectCache implements ICacheObject {
-  constructor(options: {cacheSize: number});
-  set(key: ObjectCacheKey, selectorFn: any): void;
-  get(key: ObjectCacheKey): any;
-  remove(key: ObjectCacheKey): void;
-  clear(): void;
-  isValidCacheKey(key: ObjectCacheKey): boolean;
-}
-
-export class FlatMapCache implements ICacheObject {
-  set(key: any, selectorFn: any): void;
-  get(key: any): any;
-  remove(key: any): void;
-  clear(): void;
-}
-
-export class FifoMapCache implements ICacheObject {
-  constructor(options: {cacheSize: number});
-  set(key: any, selectorFn: any): void;
-  get(key: any): any;
-  remove(key: any): void;
-  clear(): void;
-}
-
-export class LruMapCache implements ICacheObject {
-  constructor(options: {cacheSize: number});
-  set(key: any, selectorFn: any): void;
-  get(key: any): any;
-  remove(key: any): void;
-  clear(): void;
-}
-
-/*
- * Key selector creators
- */
-export type KeySelectorCreator<S, C, D> = (selectorInputs: {
-  inputSelectors: D;
-  resultFunc: C;
-  keySelector: KeySelector<S>;
-}) => KeySelector<S>;
-
-export type ParametricKeySelectorCreator<S, P, C, D> = (selectorInputs: {
-  inputSelectors: D;
-  resultFunc: C;
-  keySelector: ParametricKeySelector<S, P>;
-}) => ParametricKeySelector<S, P>;

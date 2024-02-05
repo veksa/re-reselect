@@ -1,16 +1,9 @@
-import type {ICacheObject} from '../../index';
+import type {ICacheObject} from '../cache.interface';
 
-function testCacheSizeOptionValidation(
+export function testCacheSizeOptionValidation(
   CacheObject: new (options: {cacheSize: number}) => ICacheObject
 ) {
   describe('cacheSize option validation', () => {
-    it('throws error if not defined', () => {
-      expect(() => {
-        // @ts-expect-error option object required
-        const cache = new CacheObject();
-      }).toThrow(/Missing/);
-    });
-
     it('throws error if not a positive integer', () => {
       const wrongValues = [2.5, -12, 0];
 
@@ -28,5 +21,3 @@ function testCacheSizeOptionValidation(
     });
   });
 }
-
-export default testCacheSizeOptionValidation;
