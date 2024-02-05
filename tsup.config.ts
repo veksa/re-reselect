@@ -37,7 +37,7 @@ export default defineConfig(options => {
     {
       ...commonOptions,
       entry: {
-        'reselect.legacy-esm': 'src/index.ts',
+        'reReselect.legacy-esm': 'src/index.ts',
       },
       format: ['esm'],
       outExtension: () => ({js: '.js'}),
@@ -47,7 +47,7 @@ export default defineConfig(options => {
     {
       ...commonOptions,
       entry: {
-        'reselect.browser': 'src/index.ts',
+        'reReselect.browser': 'src/index.ts',
       },
       define: {
         'process.env.NODE_ENV': JSON.stringify('production'),
