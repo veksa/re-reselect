@@ -1,14 +1,21 @@
 {
   "name": "@veksa/re-reselect",
-  "version": "5.1.0-delta2",
+  "version": "5.1.0-delta3",
   "description": "Enhance Reselect selectors with deeper memoization and cache management",
-  "main": "dist/cjs/index.js",
-  "module": "dist/es/index.js",
-  "jsnext:main": "dist/es/index.js",
-  "browser": "dist/umd/index.js",
-  "types": "dist/types/index.d.ts",
+  "main": "./dist/cjs/reReselect.cjs",
+  "module": "./dist/reReselect.legacy-esm.js",
+  "types": "./dist/reReselect.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/reReselect.d.ts",
+      "import": "./dist/reReselect.mjs",
+      "default": "./dist/cjs/reReselect.cjs"
+    }
+  },
   "sideEffects": false,
   "files": [
+    "src",
     "dist"
   ],
   "scripts": {
