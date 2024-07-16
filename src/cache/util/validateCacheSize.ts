@@ -1,4 +1,4 @@
-function validateCacheSize(cacheSize) {
+export function validateCacheSize(cacheSize?: number) {
   if (cacheSize === undefined) {
     throw new Error('Missing the required property "cacheSize".');
   }
@@ -8,5 +8,3 @@ function validateCacheSize(cacheSize) {
     );
   }
 }
-
-export default validateCacheSize;

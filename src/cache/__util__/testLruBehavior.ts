@@ -1,7 +1,7 @@
-import type {ICacheObject} from '../../index';
-import fillCacheWith from './fillCacheWith';
+import type {ICacheObject} from '../cache.interface';
+import {fillCacheWith} from './fillCacheWith';
 
-function testLruBehavior(
+export function testLruBehavior(
   CacheObject: new (options: {cacheSize: number}) => ICacheObject
 ) {
   describe('LRU cache behavior', () => {
@@ -37,5 +37,3 @@ function testLruBehavior(
     });
   });
 }
-
-export default testLruBehavior;

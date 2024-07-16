@@ -1,7 +1,7 @@
-import type {ICacheObject} from '../../index';
-import fillCacheWith from './fillCacheWith';
+import type {ICacheObject} from '../cache.interface';
+import {fillCacheWith} from './fillCacheWith';
 
-function testFifoBehavior(
+export function testFifoBehavior(
   CacheObject: new (options: {cacheSize: number}) => ICacheObject
 ) {
   describe('FIFO cache behavior', () => {
@@ -39,5 +39,3 @@ function testFifoBehavior(
     });
   });
 }
-
-export default testFifoBehavior;

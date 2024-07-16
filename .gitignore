@@ -8,6 +8,16 @@ es
 lib
 coverage
 
+.yarnrc
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
+*.tgz
+
 # Trailing dotted files
 !.all-contributorsrc
 !.babelrc.js

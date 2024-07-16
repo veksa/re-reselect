@@ -1,11 +1,13 @@
-import * as reselect from 'reselect';
-import {createCachedSelector, FlatObjectCache, ICacheObject} from '../index';
-import type {CreateSelectorOptions} from 'reselect';
+import * as reselect from '@veksa/reselect';
+import {ICacheObject} from '../cache/cache.interface';
+import {createCachedSelector} from '../createCachedSelector';
+import {FlatObjectCache} from '../cache/FlatObjectCache';
+import type {CreateSelectorOptions} from '@veksa/reselect';
 
 // Cannot natively spyOn es module named exports
-jest.mock('reselect', () => ({
+jest.mock('@veksa/reselect', () => ({
   __esModule: true,
-  ...jest.requireActual('reselect'),
+  ...jest.requireActual('@veksa/reselect'),
 }));
 
 const createSelectorSpy = jest.spyOn(reselect, 'createSelector');
