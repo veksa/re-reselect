@@ -1,8 +1,0 @@
-.git/
-.tmp/
-coverage/
-dist/
-es/
-lib/
-package.json
-package-lock.json

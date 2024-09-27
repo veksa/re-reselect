@@ -1,11 +1,9 @@
-import type {ICacheObject} from '../../index';
+import type {ICacheObject} from '../cache.interface';
 
-function fillCacheWith(
+export function fillCacheWith(
   cache: ICacheObject,
-  entries: unknown[] | Set<unknown> = []
+  entries: unknown[] | Set<unknown> = [],
 ) {
-  entries.forEach(entry => cache.set(entry, entry));
+  entries.forEach((entry) => cache.set(entry, entry));
   return cache;
 }
-
-export default fillCacheWith;

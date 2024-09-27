@@ -1,6 +1,8 @@
-import type {ICacheObject} from '../../index';
+import type {ICacheObject} from '../cache.interface';
 
-function testObjectCacheKeyBehavior(makeCacheObject: () => ICacheObject) {
+export function testObjectCacheKeyBehavior(
+  makeCacheObject: () => ICacheObject,
+) {
   describe('isValidCacheKey method', () => {
     it('accepts only numbers and string', () => {
       const cache = makeCacheObject();
@@ -12,17 +14,15 @@ function testObjectCacheKeyBehavior(makeCacheObject: () => ICacheObject) {
         throw 'Missing cache.isValidCacheKey method';
       }
 
-      validValues.forEach(value => {
+      validValues.forEach((value) => {
         const actual = isValidCacheKey(value);
         expect(actual).toBe(true);
       });
 
-      invalidValues.forEach(value => {
+      invalidValues.forEach((value) => {
         const actual = isValidCacheKey(value);
         expect(actual).toBe(false);
       });
     });
   });
 }
-
-export default testObjectCacheKeyBehavior;

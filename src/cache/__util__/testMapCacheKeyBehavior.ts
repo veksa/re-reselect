@@ -1,10 +1,10 @@
-import type {ICacheObject} from '../../index';
-import fillCacheWith from './fillCacheWith';
+import type {ICacheObject} from '../cache.interface';
+import {fillCacheWith} from './fillCacheWith';
 
-function testMapCacheKeyBehavior(makeCacheObject: () => ICacheObject) {
+export function testMapCacheKeyBehavior(makeCacheObject: () => ICacheObject) {
   describe('cacheKey', () => {
     describe('isValidCacheKey method', () => {
-      it("doesn't not exist", () => {
+      it('doesn\'t not exist', () => {
         const cache = makeCacheObject();
         expect(cache.isValidCacheKey).toBe(undefined);
       });
@@ -16,11 +16,9 @@ function testMapCacheKeyBehavior(makeCacheObject: () => ICacheObject) {
 
       fillCacheWith(cache, entries);
 
-      entries.forEach(entry => {
+      entries.forEach((entry) => {
         expect(cache.get(entry)).toBe(entry);
       });
     });
   });
 }
-
-export default testMapCacheKeyBehavior;
