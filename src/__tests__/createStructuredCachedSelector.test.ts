@@ -27,7 +27,7 @@ describe('createStructuredCachedSelector', () => {
     // Dependencies
     const expectedResultFunc = (a: string, b: number) => ({x: a, y: b});
     expect(structuredSelector.resultFunc('foo', 10)).toEqual(
-      expectedResultFunc('foo', 10)
+      expectedResultFunc('foo', 10),
     );
 
     // keySelector

@@ -171,7 +171,7 @@ Given your `reselect` selectors:
   <!-- prettier-ignore -->
 
 ```js
-import {createSelector} from 'reselect';
+import {createSelector} from '@veksa/reselect';
 
 export const getMyData = createSelector(
   selectorA,

@@ -1,8 +1,8 @@
-import type {ICacheObject} from '../../index';
-import fillCacheWith from './fillCacheWith';
+import type {ICacheObject} from '../cache.interface';
+import {fillCacheWith} from './fillCacheWith';
 
-function testFifoBehavior(
-  CacheObject: new (options: {cacheSize: number}) => ICacheObject
+export function testFifoBehavior(
+  CacheObject: new (options: {cacheSize: number}) => ICacheObject,
 ) {
   describe('FIFO cache behavior', () => {
     it('limits cache queue by removing the first added items', () => {
@@ -15,7 +15,7 @@ function testFifoBehavior(
 
       expect(cache.get(1)).toBe(undefined);
       expect(cache.get(2)).toBe(undefined);
-      [4, 5, 6, 7].forEach(entry => {
+      [4, 5, 6, 7].forEach((entry) => {
         expect(cache.get(entry)).toBe(entry);
       });
     });
@@ -33,11 +33,9 @@ function testFifoBehavior(
       expect(cache.get(1)).toBe(undefined);
       expect(cache.get(3)).toBe(undefined);
 
-      [2, 4, 5, 6, 7].forEach(entry => {
+      [2, 4, 5, 6, 7].forEach((entry) => {
         expect(cache.get(entry)).toBe(entry);
       });
     });
   });
 }
-
-export default testFifoBehavior;

@@ -1,11 +1,12 @@
-import type {ICacheObject} from '../../index';
-import fillCacheWith from './fillCacheWith';
+import type {ICacheObject} from '../cache.interface';
+import {fillCacheWith} from './fillCacheWith';
 
-function testBasicBehavior(makeCacheObject: () => ICacheObject) {
+export function testBasicBehavior(makeCacheObject: () => ICacheObject) {
   describe('Cache basic behavior', () => {
     it('returns cached value', () => {
       const cache = makeCacheObject();
-      const actual = () => {};
+      const actual = () => {
+      };
 
       cache.set('foo', actual);
       const expected = cache.get('foo');
@@ -21,7 +22,7 @@ function testBasicBehavior(makeCacheObject: () => ICacheObject) {
       cache.remove(3);
 
       expect(cache.get(3)).toBe(undefined);
-      [1, 2, 4, 5].forEach(entry => {
+      [1, 2, 4, 5].forEach((entry) => {
         expect(cache.get(entry)).toBe(entry);
       });
     });
@@ -33,11 +34,9 @@ function testBasicBehavior(makeCacheObject: () => ICacheObject) {
 
       cache.clear();
 
-      [1, 2, 3, 4, 5].forEach(entry => {
+      [1, 2, 3, 4, 5].forEach((entry) => {
         expect(cache.get(entry)).toBe(undefined);
       });
     });
   });
 }
-
-export default testBasicBehavior;

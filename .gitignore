@@ -4,19 +4,19 @@
 *.log
 node_modules
 dist
-es
-lib
 coverage
 
+.yarnrc
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
+*.tgz
+
 # Trailing dotted files
-!.all-contributorsrc
-!.babelrc.js
-!.editorconfig
 !.gitignore
-!.npmignore
-!.npmrc
-!.nvmrc
-!.prettierignore
-!.prettierrc
 !.travis.yml
 !.github

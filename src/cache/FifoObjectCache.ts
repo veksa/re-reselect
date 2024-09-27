@@ -1,14 +1,27 @@
-import validateCacheSize from './util/validateCacheSize';
-import isStringOrNumber from './util/isStringOrNumber';
+import {isStringOrNumber} from './util/isStringOrNumber';
+import type {ICacheObject} from './cache.interface';
+import {validateCacheSize} from './util/validateCacheSize';
 
-export default class FifoObjectCache {
-  constructor({cacheSize} = {}) {
+interface IFifoObjectCacheParams {
+  cacheSize: number;
+}
+
+export class FifoObjectCache implements ICacheObject {
+  private _cache: Record<string, Function>;
+  private _cacheOrdering: string[];
+  private _cacheSize: number;
+
+  constructor(params: IFifoObjectCacheParams) {
+    const {cacheSize} = params;
+
     validateCacheSize(cacheSize);
+
     this._cache = {};
     this._cacheOrdering = [];
     this._cacheSize = cacheSize;
   }
-  set(key, selectorFn) {
+
+  set(key: string, selectorFn: Function) {
     this._cache[key] = selectorFn;
     this._cacheOrdering.push(key);
 
@@ -17,10 +30,12 @@ export default class FifoObjectCache {
       this.remove(earliest);
     }
   }
-  get(key) {
+
+  get(key: string) {
     return this._cache[key];
   }
-  remove(key) {
+
+  remove(key: string) {
     const index = this._cacheOrdering.indexOf(key);
 
     if (index > -1) {
@@ -28,11 +43,13 @@ export default class FifoObjectCache {
     }
     delete this._cache[key];
   }
+
   clear() {
     this._cache = {};
     this._cacheOrdering = [];
   }
-  isValidCacheKey(cacheKey) {
+
+  isValidCacheKey(cacheKey: string) {
     return isStringOrNumber(cacheKey);
   }
 }
