@@ -1,6 +1,6 @@
 {
   "name": "@veksa/re-reselect",
-  "version": "5.1.1-p2",
+  "version": "5.1.1-p7",
   "description": "Enhance Reselect selectors with deeper memoization and cache management",
   "main": "./dist/cjs/index.js",
   "types": "./dist/reReselect.d.ts",
@@ -14,13 +14,12 @@
   },
   "sideEffects": false,
   "files": [
-    "src",
     "dist"
   ],
   "scripts": {
     "compile": "tsc --noEmit",
     "build": "yarn clean && tsup",
-    "lint": "eslint src",
+    "lint": "eslint",
     "test": "jest ./src",
     "clean": "rimraf dist",
     "preversion": "yarn prepare",
@@ -40,25 +39,6 @@
   },
   "author": "Andrea Carraro <me@andreacarraro.it>",
   "license": "MIT",
-  "peerDependencies": {
-    "@veksa/reselect": "^5.1.1-p2"
-  },
-  "devDependencies": {
-    "@types/jest": "^29.5.13",
-    "@typescript-eslint/eslint-plugin": "^6",
-    "@typescript-eslint/eslint-plugin-tslint": "^6",
-    "@typescript-eslint/parser": "^6",
-    "@veksa/reselect": "^5.1.1-p2",
-    "all-contributors-cli": "^6.26.1",
-    "eslint": "^8.0.1",
-    "eslint-plugin-react": "^7.26.1",
-    "eslint-plugin-typescript": "0.14.0",
-    "jest": "^29.7.0",
-    "rimraf": "^6.0.1",
-    "ts-jest": "^29.2.5",
-    "tsup": "^8.3.0",
-    "typescript": "^5.6.2"
-  },
   "jest": {
     "preset": "ts-jest/presets/js-with-ts",
     "moduleFileExtensions": [
@@ -77,5 +57,25 @@
       "<rootDir>/jest.setup.ts"
     ]
   },
-  "packageManager": "yarn@4.4.1"
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.0.3",
+    "@typescript-eslint/eslint-plugin": "^8.34.1",
+    "@typescript-eslint/eslint-plugin-tslint": "^7.0.2",
+    "@typescript-eslint/parser": "^8.34.1",
+    "@veksa/reselect": "^5.1.1-p7",
+    "all-contributors-cli": "^6.26.1",
+    "eslint": "^9.29.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-typescript": "^0.14.0",
+    "jest": "^30.0.0",
+    "rimraf": "^6.0.1",
+    "ts-jest": "^29.4.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3"
+  },
+  "peerDependencies": {
+    "@veksa/reselect": "^5.1.1-p7"
+  },
+  "packageManager": "yarn@4.9.2"
 }
