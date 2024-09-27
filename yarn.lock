@@ -1444,7 +1444,7 @@ __metadata:
     "@typescript-eslint/eslint-plugin": "npm:^6"
     "@typescript-eslint/eslint-plugin-tslint": "npm:^6"
     "@typescript-eslint/parser": "npm:^6"
-    "@veksa/reselect": "npm:^5.1.1-p2"
+    "@veksa/reselect": "npm:^5.1.1-p3"
     all-contributors-cli: "npm:^6.26.1"
     eslint: "npm:^8.0.1"
     eslint-plugin-react: "npm:^7.26.1"
@@ -1455,14 +1455,14 @@ __metadata:
     tsup: "npm:^8.3.0"
     typescript: "npm:^5.6.2"
   peerDependencies:
-    "@veksa/reselect": ^5.1.1-p2
+    "@veksa/reselect": ^5.1.1-p3
   languageName: unknown
   linkType: soft
 
-"@veksa/reselect@npm:^5.1.1-p2":
-  version: 5.1.1-p2
-  resolution: "@veksa/reselect@npm:5.1.1-p2"
-  checksum: 10/59fedf66e45397762cde933ff173e2cc89fec42e3c15eb70020099644bfca1b6d758da2f7b34228190a8af34d8ecbe780f025348829a7e67def38f0a53bc92d4
+"@veksa/reselect@npm:^5.1.1-p3":
+  version: 5.1.1-p3
+  resolution: "@veksa/reselect@npm:5.1.1-p3"
+  checksum: 10/5502d79be0d9e751434b48430edae8615eaa057cc6bb3ce1dda9739a92a4bba567357b100de4496cc26572c82d2108aa49013d8441d956eb05fe5223277ba6a5
   languageName: node
   linkType: hard
 

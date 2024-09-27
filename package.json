@@ -1,6 +1,6 @@
 {
   "name": "@veksa/re-reselect",
-  "version": "5.1.1-p2",
+  "version": "5.1.1-p3",
   "description": "Enhance Reselect selectors with deeper memoization and cache management",
   "main": "./dist/cjs/index.js",
   "types": "./dist/reReselect.d.ts",
@@ -41,14 +41,14 @@
   "author": "Andrea Carraro <me@andreacarraro.it>",
   "license": "MIT",
   "peerDependencies": {
-    "@veksa/reselect": "^5.1.1-p2"
+    "@veksa/reselect": "^5.1.1-p3"
   },
   "devDependencies": {
     "@types/jest": "^29.5.13",
     "@typescript-eslint/eslint-plugin": "^6",
     "@typescript-eslint/eslint-plugin-tslint": "^6",
     "@typescript-eslint/parser": "^6",
-    "@veksa/reselect": "^5.1.1-p2",
+    "@veksa/reselect": "^5.1.1-p3",
     "all-contributors-cli": "^6.26.1",
     "eslint": "^8.0.1",
     "eslint-plugin-react": "^7.26.1",
