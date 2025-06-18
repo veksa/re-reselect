@@ -1,0 +1,15 @@
+{
+  "preset": "ts-jest/presets/js-with-ts",
+  "testRegex": "\\.test\\.(ts|tsx)$",
+  "testEnvironment": "node",
+  "moduleFileExtensions": [
+    "js",
+    "ts"
+  ],
+  "setupFilesAfterEnv": [
+    "<rootDir>/jest.setup.ts"
+  ],
+  "moduleDirectories": [
+    "node_modules"
+  ]
+}

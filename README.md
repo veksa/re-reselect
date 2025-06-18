@@ -1,384 +1,537 @@
-# Re-reselect
+# @veksa/re-reselect
 
-[![Build status][ci-badge]][ci]
-[![Npm version][npm-version-badge]][npm]
-[![Npm downloads][npm-downloads-badge]][npm]
-[![Test coverage report][coveralls-badge]][coveralls]
+[![npm version](https://img.shields.io/npm/v/@veksa/re-reselect.svg?style=flat-square)](https://www.npmjs.com/package/@veksa/re-reselect)
+[![npm downloads](https://img.shields.io/npm/dm/@veksa/re-reselect.svg?style=flat-square)](https://www.npmjs.com/package/@veksa/re-reselect)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE.md)
 
-From [v5](https://github.com/reduxjs/reselect/releases/tag/v5.0.1), `reselect` provides the ability to natively implement custom memoization/caching solutions via `createSelector` options. Most of the features `re-reselect` used to enable should be now natively available in `reselect`. `re-reselect` will try to support `reselect` v5+ for backward compatibility reasons.
+`@veksa/re-reselect` is a lightweight wrapper around **[Reselect](https://github.com/veksa/reselect)** that enhances selectors with deeper memoization and sophisticated cache management. This package is a fork of the original `re-reselect` maintained for compatibility with `@veksa/reselect` v5+ and modern TypeScript environments.
 
-`re-reselect` is a lightweight wrapper around **[Reselect][reselect]** meant to enhance selectors with **deeper memoization** and **cache management**.
+Standard `@veksa/reselect` selectors have a cache limit of one, causing cache invalidation when switching between different arguments. `@veksa/re-reselect` solves this by maintaining a cache of selectors, preserving computed values across multiple selector calls with different parameters.
 
-**Switching between different arguments** using standard `reselect` selectors causes **cache invalidation** since default `reselect` cache has a **limit of one**.
+## Features
 
-`re-reselect` **forwards different calls to different** `reselect` **selectors** stored in cache, so that computed/memoized values are retained.
-
-`re-reselect` **selectors work as normal** `reselect` **selectors** but they are able to determine when **creating a new selector or querying a cached one** on the fly, depending on the supplied arguments.
-
-![Reselect and re-reselect][reselect-and-re-reselect-sketch]
-
-Useful to:
-
-- **Retain selector's cache** when sequentially **called with one/few different arguments** ([example][example-1])
-- **Join similar selectors** into one
-- **Share selectors** with props across multiple component instances (see [reselect example][reselect-sharing-selectors] and [re-reselect solution][example-2])
-- **Instantiate** selectors **on runtime**
-- Enhance `reselect` with [custom caching strategies][cache-objects-docs]
-
-<!-- prettier-ignore -->
-```js
-import {createCachedSelector} from 're-reselect';
-
-// Normal reselect routine: declare "inputSelectors" and "resultFunc"
-const getUsers = state => state.users;
-const getLibraryId = (state, libraryName) => state.libraries[libraryName].id;
-
-const getUsersByLibrary = createCachedSelector(
-  // inputSelectors
-  getUsers,
-  getLibraryId,
-
-  // resultFunc
-  (users, libraryId) => expensiveComputation(users, libraryId),
-)(
-  // re-reselect keySelector (receives selectors' arguments)
-  // Use "libraryName" as cacheKey
-  (_state_, libraryName) => libraryName
-);
-
-// Cached selectors behave like normal selectors:
-// 2 reselect selectors are created, called and cached
-const reactUsers = getUsersByLibrary(state, 'react');
-const vueUsers = getUsersByLibrary(state, 'vue');
-
-// This 3rd call hits the cache
-const reactUsersAgain = getUsersByLibrary(state, 'react');
-// reactUsers === reactUsersAgain
-// "expensiveComputation" called twice in total
-```
-
-## Table of contents
-
-- [Installation](#installation)
-- [Why? + example](#why--example)
-  - [re-reselect solution](#re-reselect-solution)
-  - [Other viable solutions](#other-viable-solutions)
-- [Examples](#examples)
-- [FAQ](#faq)
-- [API](#api)
-  - [`createCachedSelector`](#createCachedSelector)
-  - [`createStructuredCachedSelector`](#createStructuredCachedSelector)
-  - [keySelector](#keyselector)
-  - [options](#options)
-  - [selector instance][selector-instance-docs]
-- [About re-reselect](#about-re-reselect)
-- [Todo's](#todos)
-- [Contributors](#contributors)
+- **Enhanced memoization** - Retain selector's cache when called with different arguments
+- **Selector consolidation** - Join similar selectors into one unified selector
+- **Prop sharing** - Share selectors with props across multiple component instances
+- **Runtime instantiation** - Create selectors dynamically during runtime
+- **Custom caching** - Multiple built-in cache strategies with configurable options
+- **TypeScript support** - Full TypeScript type definitions
 
 ## Installation
 
-```console
-npm install reselect
-npm install re-reselect
+@veksa/re-reselect requires **TypeScript 5.8 or later**.
+
+### Using npm or yarn
+
+```bash
+# npm
+npm install @veksa/reselect @veksa/re-reselect
+
+# yarn
+yarn add @veksa/reselect @veksa/re-reselect
 ```
-
-## Why? + example
-
-Let's say `getData` is a `reselect` selector.
-
-```js
-getData(state, itemId, 'dataA');
-getData(state, itemId, 'dataB');
-getData(state, itemId, 'dataA');
-```
-
-The **3rd argument invalidates `reselect` cache** on each call, forcing `getData` to re-evaluate and return a new value.
-
-### re-reselect solution
-
-`re-reselect` selectors keep a **cache of `reselect` selectors** stored by `cacheKey`.
-
-<!-- Please note that part of this lines are repeated in #api chapter -->
-
-`cacheKey` is the return value of the `keySelector` function. It's by default a `string` or `number` but it can be anything depending on the chosen cache strategy (see [cache objects docs][cache-objects-docs]).
-
-`keySelector` is a custom function which:
-
-- takes the same arguments as the selector itself (in the example: `state`, `itemId`, `dataType`)
-- returns a `cacheKey`
-
-A **unique persisting `reselect` selector instance** stored in cache is used to compute data for a given `cacheKey` (1:1).
-
-Back to the example, we might setup `re-reselect` to retrieve data by **querying one of the cached selectors** using the 3rd argument as `cacheKey`, allowing cache invalidation only when `state` or `itemId` change (but not `dataType`):
-
-<!-- prettier-ignore -->
-```js
-const getData = createCachedSelector(
-  state => state,
-  (state, itemId) => itemId,
-  (state, itemId, dataType) => dataType,
-  (state, itemId, dataType) => expensiveComputation(state, itemId, dataType)
-)(
-  (state, itemId, dataType) => dataType // Use dataType as cacheKey
-);
-```
-
-**Replacing a selector with a cached selector is invisible to the consuming application since the API is the same.**
-
-**When a cached selector is called**, the following happens behind the scenes:
-
-1.  **Evaluate the `cacheKey`** for the current call by executing `keySelector`
-2.  **Retrieve** from cache the **`reselect` selector** stored under the given `cacheKey`
-3.  **Return found selector or create a new one** if no selector was found
-4.  **Call returned selector** with provided arguments
-
-### Other viable solutions
-
-#### 1- Declare a different selector for each different call
-
-Easy, but doesn't scale. See ["join similar selectors" example][example-1].
-
-#### 2- Declare a `makeGetPieceOfData` selector factory as explained in Reselect docs
-
-The solution suggested in [Reselect docs][reselect-sharing-selectors] is fine, but it has a few downsides:
-
-- Bloats your code by exposing both `get` selectors and `makeGet` selector factories
-- Needs to import/call the selector factory instead of directly using the selector
-- Two different instances, given the same arguments, will individually store and recompute the same result (read [this](https://github.com/reactjs/reselect/pull/213))
-
-#### 3- Wrap your `makeGetPieceOfData` selector factory into a memoizer function and call the returning memoized selector
-
-This is what `re-reselect` actually does. 😀
 
 ## Examples
 
-- [Join similar selectors][example-1]
-- [Avoid selector factories][example-2]
-- [Cache API calls][example-3]
-- [Programmatic keySelector composition][example-4]
-- [Usage with Selectorator][example-5]
+### Comparing @veksa/reselect and @veksa/re-reselect
 
-## FAQ
+Let's compare how we would implement a data selector with both libraries. In this example, we're retrieving user data filtered by a specific criteria and library.
 
-<details>
-  <summary>
-    <b>How do I wrap my existing selector with re-reselect?</b>
-  </summary>
-  <br/>
+#### Problem: Cache invalidation with multiple parameters
 
-Given your `reselect` selectors:
+Imagine we need to select users who belong to a particular library and match a given filter. With standard selectors, we would implement this as follows:
 
-  <!-- prettier-ignore -->
+#### @veksa/reselect implementation
 
-```js
-import {createSelector} from '@veksa/reselect';
+```typescript
+import { createSelector } from '@veksa/reselect';
 
-export const getMyData = createSelector(
-  selectorA,
-  selectorB,
-  selectorC,
-  (A, B, C) => doSomethingWith(A, B, C)
+const getUsers = (state) => state.users;
+const getLibraryId = (state, libraryId) => libraryId;
+const getFilter = (state, libraryId, filter) => filter;
+
+const getUsersByLibraryAndFilter = createSelector(
+  getUsers,
+  getLibraryId,
+  getFilter,
+  (users, libraryId, filter) => {
+    console.log('Expensive computation running!');
+    return users.filter(user => 
+      user.libraryId === libraryId && 
+      user.name.includes(filter)
+    );
+  }
+);
+
+// Usage:
+const state = { users: [/* ... user data ... */] };
+
+// First call with 'react' library and 'john' filter
+const reactUsersJohn = getUsersByLibraryAndFilter(state, 'react', 'john');
+
+// Second call with 'vue' library and 'smith' filter
+const vueUsersSmith = getUsersByLibraryAndFilter(state, 'vue', 'smith');
+
+// Third call with 'react' library and 'john' filter again
+// Despite having the same parameters as the first call,
+// the expensive computation runs again because the second call invalidated the cache
+const reactUsersJohnAgain = getUsersByLibraryAndFilter(state, 'react', 'john');
+// Console: 'Expensive computation running!' (3 times)
+```
+
+With a standard @veksa/reselect selector, **each time** you call it with different arguments, the memoization cache is invalidated. This means that even when you return to previous argument combinations, the expensive computation runs again.
+
+#### @veksa/re-reselect solution
+
+```typescript
+import { createCachedSelector } from '@veksa/re-reselect';
+
+const getUsers = (state) => state.users;
+const getLibraryId = (state, libraryId) => libraryId;
+const getFilter = (state, libraryId, filter) => filter;
+
+const getUsersByLibraryAndFilter = createCachedSelector(
+  getUsers,
+  getLibraryId,
+  getFilter,
+  (users, libraryId, filter) => {
+    console.log('Expensive computation running!');
+    return users.filter(user => 
+      user.libraryId === libraryId && 
+      user.name.includes(filter)
+    );
+  }
+)(
+  // The keySelector function creates a cache key from the arguments
+  // In this case, we use a combination of libraryId and filter
+  (state, libraryId, filter) => `${libraryId}:${filter}`
+);
+
+// Usage:
+const state = { users: [/* ... user data ... */] };
+
+// First call with 'react' library and 'john' filter
+const reactUsersJohn = getUsersByLibraryAndFilter(state, 'react', 'john');
+// Console: 'Expensive computation running!' (1st time)
+
+// Second call with 'vue' library and 'smith' filter
+const vueUsersSmith = getUsersByLibraryAndFilter(state, 'vue', 'smith');
+// Console: 'Expensive computation running!' (2nd time, different key)
+
+// Third call with 'react' library and 'john' filter again
+// This time, it uses the CACHED selector for 'react:john'
+const reactUsersJohnAgain = getUsersByLibraryAndFilter(state, 'react', 'john');
+// No console output - cached result is used!
+```
+
+#### How @veksa/re-reselect works
+
+When a cached selector is called, @veksa/re-reselect does the following:
+
+1. **Evaluates the `cacheKey`** by executing the `keySelector` function with the current arguments
+2. **Looks up** a previously created selector in its internal cache using this key
+3. **Creates a new selector** if one doesn't exist for this key
+4. **Returns the result** from the appropriate selector
+
+The API is identical from the user's perspective, but @veksa/re-reselect maintains a cache of selectors keyed by the values you care about, preventing unnecessary recalculations.
+
+### Basic Usage Patterns
+
+#### Common Selector Patterns
+
+When working with selectors that need parameters, several approaches are possible:
+
+```typescript
+// Pattern 1: Multiple discrete selectors (doesn't scale)
+const getProduct1Stats = createSelector(
+  getProducts,
+  products => computeProductStatistics(products, 'product-1')
+);
+
+// Pattern 2: Parameterized selector (cache invalidation problem)
+const getProductStats = createSelector(
+  getProducts,
+  (state, productId) => productId,
+  (products, productId) => computeProductStatistics(products, productId)
+);
+
+// Pattern 3: Selector factory (complex lifecycle management)
+const makeGetProductStats = (productId) => createSelector(/* ... */)
+
+// Pattern 4: Cached selector (best solution)
+const getProductStats = createCachedSelector(
+  getProducts,
+  (state, productId) => productId,
+  (products, productId) => computeProductStatistics(products, productId)
+)(
+  (state, productId) => productId  // Cache key
 );
 ```
 
-...add `keySelector` in the second function call:
+#### Sharing Selectors Across Components
 
-  <!-- prettier-ignore -->
+Use cached selectors to share selectors with props across multiple components:
 
-```js
-import {createCachedSelector} from 're-reselect';
+```typescript
+// selectors.js
+import { createCachedSelector } from '@veksa/re-reselect';
 
-export const getMyData = createCachedSelector(
-  selectorA,
-  selectorB,
-  selectorC,
-  (A, B, C) => doSomethingWith(A, B, C)
+const getVisibleTodos = createCachedSelector(
+  [(state, props) => state.todoLists[props.listId].visibilityFilter,
+   (state, props) => state.todoLists[props.listId].todos],
+  (visibilityFilter, todos) => {
+    switch (visibilityFilter) {
+      case 'SHOW_COMPLETED': return todos.filter(t => t.completed);
+      case 'SHOW_ACTIVE': return todos.filter(t => !t.completed);
+      default: return todos;
+    }
+  }
 )(
-  (state, arg1, arg2) => arg2 // Use arg2 as cacheKey
+  (state, props) => props.listId  // Cache by listId
+);
+
+// In component - no factory pattern needed
+const mapStateToProps = (state, props) => ({
+  todos: getVisibleTodos(state, props)
+});
+```
+
+## Advanced Caching Examples
+
+### Cache Key Strategies
+
+The `keySelector` function determines how selectors are cached. Here are common patterns:
+
+```typescript
+// 1. Simple parameter as key
+const getUserPosts = createCachedSelector(
+  getUser, getPosts,
+  (user, allPosts) => allPosts.filter(post => post.userId === user.id) 
+)(
+  (state, userId) => userId  // Simple key
+);
+
+// 2. Composite keys from multiple parameters
+const getFilteredItems = createCachedSelector(
+  /* input selectors */
+)(
+  (state, categoryId, statusFilter) => `${categoryId}::${statusFilter || 'all'}`
+);
+
+// 3. Object property extraction
+const getChartData = createCachedSelector(
+  /* input selectors */
+)(
+  (state, options) => `${options.timeRange}::${options.aggregation}`
+);
+
+// 4. JSON serialization for complex objects
+const getComplexCalculation = createCachedSelector(
+  /* input selectors */
+)(
+  (state, complexConfig) => JSON.stringify(complexConfig)
 );
 ```
 
-Voilà, `getMyData` is ready for use!
+### Dynamic Key Composition
 
-```js
-const myData = getMyData(state, 'foo', 'bar');
+For more complex scenarios, you can create dynamic cache keys that automatically adapt as your selectors evolve.
+
+#### Key Selector Combiner
+
+```typescript
+// Create a utility that combines key selectors
+function keySelectorCombiner({ inputSelectors = [] } = {}) {
+  // Find input selectors with keySelector property
+  const keySelectors = inputSelectors
+    .map(selector => selector.keySelector)
+    .filter(value => Boolean(value));
+
+  return (...args) => {
+    if (keySelectors.length === 0) {
+      return args[1];
+    }
+
+    // Join all key parts with a separator
+    return keySelectors
+      .map(selector => selector(...args))
+      .join('::');
+  };
+}
 ```
 
-</details>
+#### Attaching Key Selectors to Input Selectors
 
-<details>
-  <summary>
-    <b>How do I use multiple inputs to set the cacheKey?</b>
-  </summary>
-  <br/>
+```typescript
+// Input selectors with attached key information
+const getUserById = (state, userId) => state.users[userId];
+userById.keySelector = (state, userId) => `user:${userId}`;
 
-A few good examples and [a bonus](https://github.com/toomuchdesign/re-reselect/issues/3):
+const getTeamById = (state, userId) => {
+  const user = getUserById(state, userId);
+  return state.teams[user.teamId];
+};
+getTeamById.keySelector = (state, userId) => {
+  const user = getUserById(state, userId);
+  return `team:${user.teamId}`;
+};
 
-<!-- prettier-ignore -->
-```js
-// Basic usage: use a single argument as cacheKey
-createCachedSelector(
-  // ...
-)(
-  (state, arg1, arg2, arg3) => arg3
-)
+// Regular input selector that doesn't affect caching
+const getGlobalSettings = state => state.settings;
 
-// Use multiple arguments and chain them into a string
-createCachedSelector(
-  // ...
-)(
-  (state, arg1, arg2, arg3) => `${arg1}:${arg3}`
-)
-
-// Extract properties from an object
-createCachedSelector(
-  // ...
-)(
-  (state, props) => `${props.a}:${props.b}`
-)
+// Combined selector with dynamic key composition
+const getUserDashboardData = createCachedSelector(
+  [
+    getUserById,      // Has keySelector
+    getTeamById,      // Has keySelector 
+    getGlobalSettings // No keySelector, won't affect cache key
+  ],
+  (user, team, settings) => computeDashboardData(user, team, settings)
+)(keySelectorCombiner); // Automatically creates composite key
 ```
 
-</details>
+#### Runtime Behavior
 
-<details>
-  <summary>
-    <b>How do I limit the cache size?</b>
-  </summary>
-  <br/>
+At runtime, the code above effectively creates this key selector:
 
-Use a [`cacheObject`][cache-objects-docs] which provides that feature by supplying a [`cacheObject` option](#cacheobject).
+```typescript
+// Equivalent key selector generated at runtime
+(state, userId) => `user:${userId}::team:${getUser(state, userId).teamId}`
+```
 
-You can also write **your own cache strategy**!
+#### Benefits of Dynamic Key Composition
 
-</details>
+- **Self-adapting** - Cache keys evolve automatically as input selectors change
+- **Declarative** - Input selectors declare their own caching requirements
+- **Maintainable** - No need to manually update key selectors when adding new cache dimensions
+- **Separation of concerns** - Each selector defines its own caching behavior
 
-<details>
-  <summary>
-    <b>How to share a selector across multiple components while passing in props and retaining memoization?</b>
-  </summary>
-  <br/>
+## Testing Examples
 
-[This example][example-2] shows how `re-reselect` would solve the scenario described in [reselect docs][reselect-sharing-selectors].
+### Testing Selectors
 
-</details>
+Cached selectors support both standard testing approaches and advanced cache-specific testing methods:
 
-<details>
-  <summary>
-    <b>How do I test a re-reselect selector?</b>
-  </summary>
-  <br/>
+```typescript
+// Basic result function testing
+test('should filter users by ID', () => {
+  const users = [{ id: 1 }, { id: 2 }];
+  const userId = 1;
+  
+  // Direct access to the result function
+  const result = getUsersById.resultFunc(users, userId);
+  
+  expect(result).toEqual([{ id: 1 }]);
+});
 
-Like a normal reselect selector!
+// Testing structured selectors
+test('should gather dashboard data', () => {
+  const user = { id: 1, name: 'Test' };
+  const metrics = { visits: 10 };
+  const notifications = ['Message 1'];
+  
+  // Direct call to resultFunc with expected inputs
+  const result = getDashboardData.resultFunc(user, metrics, notifications);
+  
+  expect(result).toEqual({
+    user,
+    metrics,
+    notifications
+  });
+});
 
-`re-reselect` selectors expose the same `reselect` testing methods:
+// Testing cache hits
+test('should return cached result for same filter', () => {
+  const state = { users: [/* data */] };
+  const filter = 'test';
+  
+  const result1 = getFilteredUsers(state, filter);
+  const result2 = getFilteredUsers(state, filter);
+  
+  // Same reference = cache hit
+  expect(result1).toBe(result2); 
+  expect(getFilteredUsers.recomputations()).toBe(1); // Only computed once
+});
 
-- `dependencies`
-- `resultFunc`
-- `recomputations`
-- `resetRecomputations`
+// Testing cache invalidation
+test('should invalidate cache for different filters', () => {
+  const state = { users: [/* data */] };
+  
+  getFilteredUsers(state, 'a');
+  expect(getFilteredUsers.recomputations()).toBe(1);
+  
+  // Different key should compute again
+  getFilteredUsers(state, 'b');
+  expect(getFilteredUsers.recomputations()).toBe(2);
+});
 
-Read more about testing selectors on [`reselect` docs][reselect-test-selectors].
+// Testing cache manipulation methods
+test('should expose cache methods', () => {
+  const state = { users: [/* data */] };
+  
+  // Call with filter 'a'
+  getFilteredUsers(state, 'a');
+  
+  // Get underlying selector for key 'a'
+  const underlyingSelector = getFilteredUsers.getMatchingSelector(state, 'a');
+  expect(underlyingSelector).toBeDefined();
+  
+  // Remove specific key from cache
+  getFilteredUsers.removeMatchingSelector(state, 'a');
+  expect(getFilteredUsers.getMatchingSelector(state, 'a')).toBeUndefined();
+  
+  // Clear entire cache
+  getFilteredUsers(state, 'a');
+  getFilteredUsers(state, 'b');
+  getFilteredUsers.clearCache();
+  expect(getFilteredUsers.cache.size).toBe(0);
+});
+```
 
-#### Testing `reselect` selectors stored in the cache
+## API Reference
 
-Each **re-reselect** selector exposes a `getMatchingSelector` method which returns the **underlying matching selector** instance for the given arguments, **instead of the result**.
+### Core Functions
 
-`getMatchingSelector` expects the same arguments as a normal selector call **BUT returns the instance of the cached selector itself**.
+#### createCachedSelector
 
-Once you get a selector instance you can call [its public methods][reselect-selectors-methods].
+```typescript
+import {createCachedSelector} from '@veksa/re-reselect';
 
-<!-- prettier-ignore -->
-```js
-import {createCachedSelector} from 're-reselect';
-
-export const getMyData = createCachedSelector(selectorA, selectorB, (A, B) =>
-  doSomethingWith(A, B)
+const myCachedSelector = createCachedSelector(
+  // Input selectors (same as @veksa/reselect)
+  inputSelector1,
+  inputSelector2,
+  // Result function
+  (input1, input2) => computeResult(input1, input2)
 )(
-  (state, arg1) => arg1 // cacheKey
+  // Either a simple keySelector function:
+  (state, arg) => arg,
+  // Or an options object:
+  {
+    keySelector: (state, arg) => arg,
+    cacheObject: new LruObjectCache({cacheSize: 10}),
+    // Other options...
+  }
 );
-
-// Call your selector
-const myFooData = getMyData(state, 'foo');
-const myBarData = getMyData(state, 'bar');
-
-// Call getMatchingSelector method to retrieve underlying reselect selectors
-// which generated "myFooData" and "myBarData" results
-const myFooDataSelector = getMyData.getMatchingSelector(state, 'foo');
-const myBarDataSelector = getMyData.getMatchingSelector(state, 'bar');
-
-// Call reselect's selectors methods
-myFooDataSelector.recomputations();
-myFooDataSelector.resetRecomputations();
 ```
 
-</details>
+Creates a memoized selector with cache behavior based on a key selector function.
 
-## API
+#### createStructuredCachedSelector
 
-### createCachedSelector
+```typescript
+import {createStructuredCachedSelector} from '@veksa/re-reselect';
 
-<!-- prettier-ignore -->
-```js
-import {createCachedSelector} from 're-reselect';
-
-createCachedSelector(
-  // ...reselect's `createSelector` arguments
-)(
-  keySelector | { options }
-)
+const structuredSelector = createStructuredCachedSelector({
+  value1: selector1,
+  value2: selector2,
+  // More key-selector pairs...
+})(
+  (state, arg) => arg // Key selector
+);
 ```
 
-Takes the same arguments as reselect's [`createSelector`][reselect-create-selector] and returns a new function which accepts a [`keySelector`](#keyselector) or an [`options`](#options) object.
+Creates a structured cached selector that returns an object composed of the results of each input selector.
 
-**Returns** a [selector instance][selector-instance-docs].
-
-### createStructuredCachedSelector
-
-<!-- prettier-ignore -->
-```js
-import {createStructuredCachedSelector} from 're-reselect';
-
-createStructuredCachedSelector(
-  // ...reselect's `createStructuredSelector` arguments
-)(
-  keySelector | { options }
-)
-```
-
-Takes the same arguments as reselect's [`createStructuredSelector`][reselect-create-structured-selector] and returns a new function which accepts a [`keySelector`](#keyselector) or an [`options`](#options) object.
-
-**Returns** a [selector instance][selector-instance-docs].
-
-### keySelector
-
-A custom function receiving the same arguments as your selectors (and `inputSelectors`) and **returning a `cacheKey`**.
-
-`cacheKey` is **by default a `string` or `number`** but can be anything depending on the chosen cache strategy (see [`cacheObject` option](#optionscacheobject)).
-
-The `keySelector` idea comes from [Lodash's .memoize resolver][lodash-memoize].
-
-### options
+### Configuration Options
 
 #### keySelector
 
 Type: `function`<br />
 Default: `undefined`
 
-The [`keySelector`](#keyselector) used by the cached selector.
+A function that determines the cache key for a selector call:
 
-#### cacheObject
+```typescript
+// Simple key selector using a single parameter
+(state, userId) => userId
+
+// Composite key using multiple parameters
+(state, categoryId, statusFilter) => `${categoryId}::${statusFilter}`
+```
+
+#### Cache Management
 
 Type: `object`<br />
-Default: [`FlatObjectCache`][cache-objects-docs]
+Default: `FlatObjectCache`
 
-An optional custom **cache strategy object** to handle the caching behaviour. Read more about [re-reselect's custom cache here][cache-objects-docs].
+`@veksa/re-reselect` provides comprehensive cache management through the `cacheObject` option:
+
+```typescript
+import { createCachedSelector, LruObjectCache } from '@veksa/re-reselect';
+
+const categoryProductsSelector = createCachedSelector(
+  getAllProducts,
+  (state, categoryId) => categoryId,
+  (products, categoryId) => products.filter(p => p.categoryId === categoryId)
+)({ 
+  keySelector: (state, categoryId) => categoryId,
+  cacheObject: new LruObjectCache({ cacheSize: 10 })
+});
+```
+
+##### Built-in Cache Strategies
+
+`@veksa/re-reselect` includes six ready-to-use cache implementations:
+
+| Cache Strategy | Key Types | Eviction Policy | Storage | Use Case |
+|:-------------:|:--------:|:-----------------:|:-------:|:--------:|
+| `FlatObjectCache` | string/number | Unlimited | JS object | Simple selectors with few parameters |
+| `FifoObjectCache` | string/number | First-in-first-out | JS object | When memory constraints exist |
+| `LruObjectCache` | string/number | Least-recently-used | JS object | Most common use case (memory efficient) |
+| `FlatMapCache` | any | Unlimited | Map | When keys are objects or other complex types |
+| `FifoMapCache` | any | First-in-first-out | Map | Complex keys with memory constraints |
+| `LruMapCache` | any | Least-recently-used | Map | Best overall for complex keys |
+
+##### Limiting Cache Size
+
+FIFO and LRU cache strategies accept a `cacheSize` parameter to control memory usage:
+
+```typescript
+// Limit to 5 most recently used items
+const lruCache = new LruObjectCache({ cacheSize: 5 });
+
+// Limit to 10 most recently added items
+const fifoCache = new FifoMapCache({ cacheSize: 10 });
+```
+
+##### Implementation Notes
+
+- `*ObjectCache` strategies convert number keys to strings (JS object limitation)
+- `*MapCache` strategies support any key type but may require a polyfill in older browsers
+- `FlatObjectCache`/`FlatMapCache` have no size limits and should be used carefully
+
+##### Custom Cache Implementation
+
+You can create your own cache object by implementing this interface:
+
+```typescript
+interface ICacheObject {
+  // Store a selector function with the given key
+  set(key: any, selectorFn: any): void;
+  
+  // Retrieve a selector function by key
+  get(key: any): any;
+  
+  // Remove a specific selector from cache
+  remove(key: any): void;
+  
+  // Clear the entire cache
+  clear(): void;
+  
+  // Optional: Validate if a key is acceptable
+  isValidCacheKey?(key: any): boolean;
+}
+```
+
+This enables custom caching behaviors like time-based expiration, hybrid eviction policies, or integration with external caching systems.
 
 #### keySelectorCreator
 
 Type: `function`<br />
 Default: `undefined`
 
-An optional function with the following signature returning the [`keySelector`](#keyselector) used by the cached selector.
+Dynamically generates a key selector function based on the provided inputs:
 
 ```typescript
 type keySelectorCreator = (selectorInputs: {
@@ -388,152 +541,36 @@ type keySelectorCreator = (selectorInputs: {
 }) => KeySelector;
 ```
 
-This allows the ability to dynamically **generate `keySelectors` on runtime** based on provided `inputSelectors`/`resultFunc` supporting [**key selectors composition**](https://github.com/toomuchdesign/re-reselect/pull/73). It overrides any provided `keySelector`.
-
-See [programmatic keySelector composition][example-4] example.
-
 #### selectorCreator
 
 Type: `function`<br />
-Default: `reselect`'s [`createSelector`][reselect-create-selector]
+Default: `createSelector` from `@veksa/reselect`
 
-An optional function describing a [custom version of createSelector][reselect-create-selector-creator].
+An alternative implementation of `createSelector` to be used internally.
 
-### re-reselect selector instance
+### Selector Instance Methods
 
-`createCachedSelector` and `createStructuredCachedSelector` return a **selector instance** which extends the API of a **standard reselect selector**.
+Cached selectors expose these methods:
 
-> The followings are advanced methods and you won't need them for basic usage!
+#### Standard Methods (from @veksa/reselect)
 
-#### selector`.getMatchingSelector(selectorArguments)`
+- **`dependencies`**: Get array of input selectors
+- **`resultFunc`**: Access the result function (useful for testing)
+- **`recomputations()`**: Count how many times the selector has recalculated its value
+- **`resetRecomputations()`**: Reset the recomputation counter
 
-Retrieve the selector responding to the given arguments.
+#### Cache-specific Methods
 
-#### selector`.removeMatchingSelector(selectorArguments)`
+- **`getMatchingSelector(selectorArguments)`**: Get the underlying cached selector for specific arguments
+- **`removeMatchingSelector(selectorArguments)`**: Remove a specific selector from cache
+- **`cache`**: Access the cache object for advanced operations
+- **`clearCache()`**: Clear the entire selector cache
+- **`keySelector`**: Access the key selector function
 
-Remove from the cache the selector responding to the given arguments.
+## Contributing
 
-#### selector`.cache`
+This project welcomes contributions and suggestions.
 
-Get the cacheObject instance being used by the selector (for advanced caching operations like [this](https://github.com/toomuchdesign/re-reselect/issues/40)).
+## License
 
-#### selector`.clearCache()`
-
-Clear whole `selector` cache.
-
-#### selector`.dependencies`
-
-Get an array containing the provided `inputSelectors`. Refer to relevant discussion on [Reselect repo][reselect-test-selectors-dependencies].
-
-#### selector`.resultFunc`
-
-Get `resultFunc` for easily [testing composed selectors][reselect-test-selectors].
-
-#### selector`.recomputations()`
-
-Return the number of times the selector's result function has been recomputed.
-
-#### selector`.resetRecomputations()`
-
-Reset `recomputations` count.
-
-#### selector`.keySelector`
-
-Get `keySelector` for utility compositions or testing.
-
-## About re-reselect
-
-- [re-reselect your whole redux state](https://patrickdesjardins.com/blog/re-reselect-your-whole-redux-state)
-- [Understanding reselect and re-reselect](http://alexnitta.com/understanding-reselect-and-re-reselect/)
-- [React re-reselect: Better memoization and cache management](https://blog.logrocket.com/react-re-reselect-better-memoization-cache-management/)
-- [Advanced Redux patterns: selectors](https://blog.brainsandbeards.com/advanced-redux-patterns-selectors-cb9f88381d74)
-- [Be selective with your state](https://medium.com/riipen-engineering/be-selective-with-your-state-8f1be76cb9f4)
-- [A swift developer’s React Native experience](https://swiftwithjustin.co/2018/06/24/a-swift-developers-react-native-experience)
-- [5 key Redux libraries to improve code reuse](https://blog.logrocket.com/5-redux-libraries-to-improve-code-reuse-9f93eaceaa83)
-- [Rematch's docs](https://github.com/rematch/rematch/blob/1.1.0/plugins/select/README.md#re-reselect)
-- [Redux re-reselect playground](https://codesandbox.io/s/135rwqj2jj)
-
-## Todo's
-
-- Improve tests readability
-- Port to native TS based on reselect v5 approach
-- Find out whether `re-reselect` should be deprecated in favour of `reselect` memoization/cache options
-
-## Contributors
-
-Thanks to you all ([emoji key][docs-all-contributors]):
-
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
-<table>
-  <tbody>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="http://www.andreacarraro.it"><img src="https://avatars3.githubusercontent.com/u/4573549?v=4?s=100" width="100px;" alt="Andrea Carraro"/><br /><sub><b>Andrea Carraro</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/commits?author=toomuchdesign" title="Code">💻</a> <a href="https://github.com/toomuchdesign/re-reselect/commits?author=toomuchdesign" title="Documentation">📖</a> <a href="#infra-toomuchdesign" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/toomuchdesign/re-reselect/commits?author=toomuchdesign" title="Tests">⚠️</a> <a href="https://github.com/toomuchdesign/re-reselect/pulls?q=is%3Apr+reviewed-by%3Atoomuchdesign" title="Reviewed Pull Requests">👀</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/xsburg"><img src="https://avatars2.githubusercontent.com/u/830824?v=4?s=100" width="100px;" alt="Stepan Burguchev"/><br /><sub><b>Stepan Burguchev</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/commits?author=xsburg" title="Code">💻</a> <a href="#ideas-xsburg" title="Ideas, Planning, & Feedback">🤔</a> <a href="#question-xsburg" title="Answering Questions">💬</a> <a href="https://github.com/toomuchdesign/re-reselect/pulls?q=is%3Apr+reviewed-by%3Axsburg" title="Reviewed Pull Requests">👀</a> <a href="https://github.com/toomuchdesign/re-reselect/commits?author=xsburg" title="Tests">⚠️</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/sgrishchenko"><img src="https://avatars3.githubusercontent.com/u/15995890?v=4?s=100" width="100px;" alt="Sergei Grishchenko"/><br /><sub><b>Sergei Grishchenko</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/commits?author=sgrishchenko" title="Code">💻</a> <a href="#ideas-sgrishchenko" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/toomuchdesign/re-reselect/commits?author=sgrishchenko" title="Tests">⚠️</a> <a href="#tool-sgrishchenko" title="Tools">🔧</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Andarist"><img src="https://avatars2.githubusercontent.com/u/9800850?v=4?s=100" width="100px;" alt="Mateusz Burzyński"/><br /><sub><b>Mateusz Burzyński</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/commits?author=Andarist" title="Code">💻</a> <a href="#infra-Andarist" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://olslash.github.io/"><img src="https://avatars3.githubusercontent.com/u/693493?v=4?s=100" width="100px;" alt="Mitch Robb"/><br /><sub><b>Mitch Robb</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/commits?author=olslash" title="Code">💻</a> <a href="https://github.com/toomuchdesign/re-reselect/commits?author=olslash" title="Tests">⚠️</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/rufman"><img src="https://avatars3.githubusercontent.com/u/1128559?v=4?s=100" width="100px;" alt="Stephane Rufer"/><br /><sub><b>Stephane Rufer</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/commits?author=rufman" title="Code">💻</a> <a href="https://github.com/toomuchdesign/re-reselect/commits?author=rufman" title="Tests">⚠️</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/spiffysparrow"><img src="https://avatars0.githubusercontent.com/u/2788860?v=4?s=100" width="100px;" alt="Tracy Mullen"/><br /><sub><b>Tracy Mullen</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/commits?author=spiffysparrow" title="Code">💻</a> <a href="https://github.com/toomuchdesign/re-reselect/commits?author=spiffysparrow" title="Tests">⚠️</a></td>
-    </tr>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://www.skc.name"><img src="https://avatars1.githubusercontent.com/u/4211838?v=4?s=100" width="100px;" alt="Sushain Cherivirala"/><br /><sub><b>Sushain Cherivirala</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/commits?author=sushain97" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://twitter.com/MaoStevemao"><img src="https://avatars0.githubusercontent.com/u/6316590?v=4?s=100" width="100px;" alt="Steve Mao"/><br /><sub><b>Steve Mao</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/commits?author=stevemao" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Dante-101"><img src="https://avatars2.githubusercontent.com/u/1428826?v=4?s=100" width="100px;" alt="Gaurav Lahoti"/><br /><sub><b>Gaurav Lahoti</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/issues?q=author%3ADante-101" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="http://lon.im"><img src="https://avatars3.githubusercontent.com/u/13602053?v=4?s=100" width="100px;" alt="Lon"/><br /><sub><b>Lon</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/issues?q=author%3Acnlon" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/bratushka"><img src="https://avatars2.githubusercontent.com/u/5492495?v=4?s=100" width="100px;" alt="bratushka"/><br /><sub><b>bratushka</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/commits?author=bratushka" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://andrz.me"><img src="https://avatars3.githubusercontent.com/u/615381?v=4?s=100" width="100px;" alt="Anders D. Johnson"/><br /><sub><b>Anders D. Johnson</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/commits?author=AndersDJohnson" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/wormyy"><img src="https://avatars3.githubusercontent.com/u/8556724?v=4?s=100" width="100px;" alt="Július Retzer"/><br /><sub><b>Július Retzer</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/commits?author=wormyy" title="Documentation">📖</a></td>
-    </tr>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/maartenschumacher"><img src="https://avatars3.githubusercontent.com/u/10407025?v=4?s=100" width="100px;" alt="Maarten Schumacher"/><br /><sub><b>Maarten Schumacher</b></sub></a><br /><a href="#ideas-maartenschumacher" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/alexanderjarvis"><img src="https://avatars2.githubusercontent.com/u/664238?v=4?s=100" width="100px;" alt="Alexander Jarvis"/><br /><sub><b>Alexander Jarvis</b></sub></a><br /><a href="#ideas-alexanderjarvis" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/greggb"><img src="https://avatars1.githubusercontent.com/u/514026?v=4?s=100" width="100px;" alt="Gregg B"/><br /><sub><b>Gregg B</b></sub></a><br /><a href="#example-greggb" title="Examples">💡</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="http://ianobermiller.com"><img src="https://avatars0.githubusercontent.com/u/897931?v=4?s=100" width="100px;" alt="Ian Obermiller"/><br /><sub><b>Ian Obermiller</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/pulls?q=is%3Apr+reviewed-by%3Aianobermiller" title="Reviewed Pull Requests">👀</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/lukyth"><img src="https://avatars3.githubusercontent.com/u/7040242?v=4?s=100" width="100px;" alt="Kanitkorn Sujautra"/><br /><sub><b>Kanitkorn Sujautra</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/commits?author=lukyth" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/suark"><img src="https://avatars2.githubusercontent.com/u/6233440?v=4?s=100" width="100px;" alt="Brian Kraus"/><br /><sub><b>Brian Kraus</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/commits?author=suark" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/el-dav"><img src="https://avatars1.githubusercontent.com/u/7252227?v=4?s=100" width="100px;" alt="el-dav"/><br /><sub><b>el-dav</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/issues?q=author%3Ael-dav" title="Bug reports">🐛</a></td>
-    </tr>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://augustin-riedinger.fr"><img src="https://avatars3.githubusercontent.com/u/1970156?v=4?s=100" width="100px;" alt="Augustin Riedinger"/><br /><sub><b>Augustin Riedinger</b></sub></a><br /><a href="#ideas-augnustin" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/RichardForrester"><img src="https://avatars0.githubusercontent.com/u/12902182?v=4?s=100" width="100px;" alt="RichardForrester"/><br /><sub><b>RichardForrester</b></sub></a><br /><a href="#ideas-RichardForrester" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://alfonsomillan.com/"><img src="https://avatars3.githubusercontent.com/u/25711137?v=4?s=100" width="100px;" alt="Alfonso Millan"/><br /><sub><b>Alfonso Millan</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/commits?author=mechmillan" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/parkerault"><img src="https://avatars2.githubusercontent.com/u/78856?v=4?s=100" width="100px;" alt="parkerault"/><br /><sub><b>parkerault</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/issues?q=author%3Aparkerault" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/dahannes"><img src="https://avatars0.githubusercontent.com/u/2493211?v=4?s=100" width="100px;" alt="johannes"/><br /><sub><b>johannes</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/issues?q=author%3Adahannes" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/alexdlm"><img src="https://avatars.githubusercontent.com/u/1270606?v=4?s=100" width="100px;" alt="Alex de la Mare"/><br /><sub><b>Alex de la Mare</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/issues?q=author%3Aalexdlm" title="Bug reports">🐛</a> <a href="https://github.com/toomuchdesign/re-reselect/commits?author=alexdlm" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://devblog.pro/"><img src="https://avatars.githubusercontent.com/u/6467881?v=4?s=100" width="100px;" alt="Alex Khizhnyi"/><br /><sub><b>Alex Khizhnyi</b></sub></a><br /><a href="https://github.com/toomuchdesign/re-reselect/commits?author=veksa" title="Code">💻</a></td>
-    </tr>
-  </tbody>
-</table>
-
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
-
-<!-- ALL-CONTRIBUTORS-LIST:END -->
-
-[reselect]: https://github.com/reactjs/reselect
-[reselect-sharing-selectors]: https://github.com/reduxjs/reselect/tree/v4.0.0#sharing-selectors-with-props-across-multiple-component-instances
-[reselect-test-selectors]: https://github.com/reactjs/reselect/tree/v4.0.0#q-how-do-i-test-a-selector
-[reselect-test-selectors-dependencies]: https://github.com/reduxjs/reselect/issues/76#issuecomment-299194186
-[reselect-selectors-methods]: https://github.com/reduxjs/reselect/blob/v4.0.0/src/index.js#L81
-[reselect-create-selector]: https://github.com/reactjs/reselect/tree/v4.0.0#createselectorinputselectors--inputselectors-resultfunc
-[reselect-create-structured-selector]: https://github.com/reduxjs/reselect/tree/v4.0.0#createstructuredselectorinputselectors-selectorcreator--createselector
-[reselect-create-selector-creator]: https://github.com/reactjs/reselect/tree/v4.0.0#createselectorcreatormemoize-memoizeoptions
-[lodash-memoize]: https://lodash.com/docs/4.17.4#memoize
-[ci-badge]: https://github.com/toomuchdesign/re-reselect/actions/workflows/ci.yml/badge.svg
-[ci]: https://github.com/toomuchdesign/re-reselect/actions/workflows/ci.yml
-[coveralls-badge]: https://coveralls.io/repos/github/toomuchdesign/re-reselect/badge.svg?branch=master
-[coveralls]: https://coveralls.io/github/toomuchdesign/re-reselect?branch=master
-[npm]: https://www.npmjs.com/package/re-reselect
-[npm-version-badge]: https://img.shields.io/npm/v/re-reselect.svg
-[npm-downloads-badge]: https://img.shields.io/npm/dm/re-reselect.svg
-[reselect-and-re-reselect-sketch]: examples/reselect-and-re-reselect.png?raw=true
-[example-1]: examples/1-join-selectors.md
-[example-2]: examples/2-avoid-selector-factories.md
-[example-3]: examples/3-cache-api-calls.md
-[example-4]: examples/4-programmatic-keyselector-composition.md
-[example-5]: examples/5-selectorator.md
-[selector-instance-docs]: #re-reselect-selector-instance
-[cache-objects-docs]: src/cache#readme
-[docs-all-contributors]: https://allcontributors.org/docs/en/emoji-key
+[MIT](LICENSE.md)
