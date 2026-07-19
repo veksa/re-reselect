@@ -8,6 +8,38 @@ export type ParametricSelector<S, P, R> = (
   props: P,
   ...args: any[]
 ) => R;
+export type OptionalParametricSelector<S, P, R> = (
+  state: S,
+  props?: P,
+  ...args: any[]
+) => R;
+
+// Structured selector helpers: detect whether the provided selectors expect
+// a second (props) argument and, if so, whether that argument is required.
+type StructuredHasSecondParam<F extends (...args: any[]) => any> =
+  Parameters<F> extends [any, ...infer Rest]
+    ? Rest extends []
+      ? false
+      : true
+    : false;
+
+type StructuredIsParametric<
+  T extends { [key: string]: (...args: any[]) => any },
+> = true extends $Values<{
+  [K in keyof T]: StructuredHasSecondParam<T[K]>;
+}>
+  ? true
+  : false;
+
+// `false` here means "callable with a single argument", so a `false` in the
+// union signals that at least one selector requires the props argument.
+type StructuredHasRequiredProps<
+  T extends { [key: string]: (...args: any[]) => any },
+> = false extends $Values<{
+  [K in keyof T]: 1 extends Parameters<T[K]>['length'] ? true : false;
+}>
+  ? true
+  : false;
 
 export type KeySelector<S> = (state: S, ...args: any[]) => any;
 export type ParametricKeySelector<S, P> = (
@@ -27,6 +59,18 @@ export type OutputParametricSelector<S, P, R, C, D> = ParametricSelector<
   P,
   R
 > & {
+  resultFunc: C;
+  dependencies: D;
+  recomputations: () => number;
+  resetRecomputations: () => number;
+};
+export type OutputOptionalParametricSelector<
+  S,
+  P,
+  R,
+  C,
+  D,
+> = OptionalParametricSelector<S, P, R> & {
   resultFunc: C;
   dependencies: D;
   recomputations: () => number;
@@ -68,6 +112,20 @@ export type OutputParametricCachedSelector<S, P, R, C, D> = (
     ...args: any[]
   ) => OutputParametricSelector<S, P, R, C, D>;
   removeMatchingSelector: (state: S, props: P, ...args: any[]) => void;
+  clearCache: () => void;
+  cache: ICacheObject;
+  keySelector: ParametricKeySelector<S, P>;
+};
+
+export type OutputOptionalParametricCachedSelector<S, P, R, C, D> = (
+  options: ParametricKeySelector<S, P> | ParametricOptions<S, P, C, D>,
+) => OutputOptionalParametricSelector<S, P, R, C, D> & {
+  getMatchingSelector: (
+    state: S,
+    props?: P,
+    ...args: any[]
+  ) => OutputOptionalParametricSelector<S, P, R, C, D>;
+  removeMatchingSelector: (state: S, props?: P, ...args: any[]) => void;
   clearCache: () => void;
   cache: ICacheObject;
   keySelector: ParametricKeySelector<S, P>;
@@ -4357,34 +4415,36 @@ export { createCachedSelector };
  */
 
 export function createStructuredCachedSelector<
-  T extends { [key: string]: (state: any) => any },
-  S = $Values<{ [K in keyof T]: Parameters<T[K]>[0] }>,
-  R = { [K in keyof T]: ReturnType<T[K]> },
->(
-  selectors: T,
-): OutputCachedSelector<
-  S,
-  R,
-  (...args: $Values<R>[]) => R,
-  Selector<S, $Values<R>>[]
->;
-
-export function createStructuredCachedSelector<
   T extends {
-    [key: string]: (state: any, props: any, ...args: any[]) => any;
+    [key: string]: (state: any, ...args: any[]) => any;
   },
   S = $Values<{ [K in keyof T]: Parameters<T[K]>[0] }>,
   P = Exclude<$Values<{ [K in keyof T]: Parameters<T[K]>[1] }>, undefined>,
   R = { [K in keyof T]: ReturnType<T[K]> },
 >(
   selectors: T,
-): OutputParametricCachedSelector<
-  S,
-  P,
-  R,
-  (...args: $Values<R>[]) => R,
-  ParametricSelector<S, P, $Values<R>>[]
->;
+): StructuredIsParametric<T> extends false
+  ? OutputCachedSelector<
+      S,
+      R,
+      (...args: $Values<R>[]) => R,
+      Selector<S, $Values<R>>[]
+    >
+  : StructuredHasRequiredProps<T> extends true
+    ? OutputParametricCachedSelector<
+        S,
+        P,
+        R,
+        (...args: $Values<R>[]) => R,
+        ParametricSelector<S, P, $Values<R>>[]
+      >
+    : OutputOptionalParametricCachedSelector<
+        S,
+        P,
+        R,
+        (...args: $Values<R>[]) => R,
+        ParametricSelector<S, P, $Values<R>>[]
+      >;
 
 /*
  * Cache objects
