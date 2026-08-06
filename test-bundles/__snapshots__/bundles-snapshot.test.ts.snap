@@ -237,7 +237,7 @@ export { type CreateCachedSelector, type CreateCachedSelectorOptions, FifoMapCac
 `;
 
 exports[`published artifacts > dist/es/index.legacy-esm.js is unchanged 1`] = `
-"import { createSelector, createStructuredSelector } from "reselect";
+"import { createSelector, createStructuredSelector, lruMemoize } from "reselect";
 //#region src/cache/util/isStringOrNumber.ts
 function isStringOrNumber(value) {
 	return typeof value === "string" || typeof value === "number";
@@ -296,8 +296,29 @@ const createCachedSelectorImpl = ((...reselectArgs) => {
 			recomputations++;
 			return resultFunc(...args);
 		};
-		const patchedReselectArgs = [inputSelectors, resultFuncWithRecomputations];
-		if (createSelectorOptions) patchedReselectArgs.push(createSelectorOptions);
+		/**
+		* Instances default to a size-1 argument cache rather than reselect's
+		* \`weakMapMemoize\`.
+		*
+		* A cached selector has already chosen the instance by key before calling it, so
+		* the instance sees one argument shape and needs no cache of its own beyond the
+		* previous call. \`weakMapMemoize\` instead keys on the argument list, and the
+		* first of those arguments is the state — which a store replaces on every write,
+		* so the lookup misses every time and allocates a node to record the miss. What
+		* makes the result reusable is the memoization on *input values* below it, and
+		* that is untouched: recomputation counts do not change.
+		*
+		* \`createSelectorOptions\` is spread last, so a caller who wants the previous
+		* behaviour passes \`argsMemoize\` explicitly and gets it.
+		*/
+		const patchedReselectArgs = [
+			inputSelectors,
+			resultFuncWithRecomputations,
+			{
+				argsMemoize: lruMemoize,
+				...createSelectorOptions
+			}
+		];
 		const cache = options.cacheObject || new FlatObjectCache();
 		const selectorCreator = options.selectorCreator || createSelector;
 		if (options.keySelectorCreator) options.keySelector = options.keySelectorCreator({
@@ -522,7 +543,7 @@ export { FifoMapCache, FifoObjectCache, FlatMapCache, FlatObjectCache, LruMapCac
 `;
 
 exports[`published artifacts > dist/es/index.mjs is unchanged 1`] = `
-"import { createSelector, createStructuredSelector } from "reselect";
+"import { createSelector, createStructuredSelector, lruMemoize } from "reselect";
 //#region src/cache/util/isStringOrNumber.ts
 function isStringOrNumber(value) {
 	return typeof value === "string" || typeof value === "number";
@@ -581,8 +602,29 @@ const createCachedSelectorImpl = ((...reselectArgs) => {
 			recomputations++;
 			return resultFunc(...args);
 		};
-		const patchedReselectArgs = [inputSelectors, resultFuncWithRecomputations];
-		if (createSelectorOptions) patchedReselectArgs.push(createSelectorOptions);
+		/**
+		* Instances default to a size-1 argument cache rather than reselect's
+		* \`weakMapMemoize\`.
+		*
+		* A cached selector has already chosen the instance by key before calling it, so
+		* the instance sees one argument shape and needs no cache of its own beyond the
+		* previous call. \`weakMapMemoize\` instead keys on the argument list, and the
+		* first of those arguments is the state — which a store replaces on every write,
+		* so the lookup misses every time and allocates a node to record the miss. What
+		* makes the result reusable is the memoization on *input values* below it, and
+		* that is untouched: recomputation counts do not change.
+		*
+		* \`createSelectorOptions\` is spread last, so a caller who wants the previous
+		* behaviour passes \`argsMemoize\` explicitly and gets it.
+		*/
+		const patchedReselectArgs = [
+			inputSelectors,
+			resultFuncWithRecomputations,
+			{
+				argsMemoize: lruMemoize,
+				...createSelectorOptions
+			}
+		];
 		const cache = options.cacheObject || new FlatObjectCache();
 		const selectorCreator = options.selectorCreator || createSelector;
 		if (options.keySelectorCreator) options.keySelector = options.keySelectorCreator({

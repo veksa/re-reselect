@@ -761,13 +761,39 @@ describe('createCachedSelector', () => {
     cachedSelector('foo', 'bar');
 
     expect(selectorCreator).toHaveBeenCalledTimes(1);
-    expect(selectorCreator).toHaveBeenCalledWith(
-      [inputSelector1],
-      expect.any(Function),
-      createSelectorOptions,
-    );
+
+    const [inputSelectors, resultFunc, forwardedOptions] =
+      selectorCreator.mock.calls[0]!;
+
+    expect(inputSelectors).toEqual([inputSelector1]);
+    expect(resultFunc).toBeTypeOf('function');
+    // The caller's options are merged over the instance defaults rather than
+    // replacing them, so `argsMemoize` arrives alongside whatever was passed.
+    // It is matched by name: the CJS bundle requires reselect's CJS build
+    // while this file imports its ESM one, so the two `lruMemoize` references
+    // are not the same object.
+    expect(forwardedOptions).toMatchObject(createSelectorOptions);
+    expect(forwardedOptions.argsMemoize.name).toBe(lruMemoize.name);
 
     expect(cachedSelector.recomputations()).toBe(1);
+  });
+
+  it('lets createSelectorOptions override the default argsMemoize', () => {
+    const inputSelector = (state: string, param1: string) => null;
+
+    const selectorCreator = trackSelectorCreator();
+
+    const cachedSelector = createCachedSelector([inputSelector], () => {}, {
+      argsMemoize: weakMapMemoize,
+    })({ selectorCreator, keySelector: (state, param1) => param1 });
+
+    cachedSelector('foo', 'bar');
+
+    expect(selectorCreator).toHaveBeenCalledWith(
+      [inputSelector],
+      expect.any(Function),
+      { argsMemoize: weakMapMemoize },
+    );
   });
 
   describe('withTypes', () => {
