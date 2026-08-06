@@ -266,7 +266,6 @@ var FlatObjectCache = class {
 };
 //#endregion
 //#region src/createCachedSelector.ts
-const defaultCacheKeyValidator = () => true;
 function isFunction(value) {
 	return typeof value === "function";
 }
@@ -301,7 +300,6 @@ const createCachedSelectorImpl = ((...reselectArgs) => {
 		if (createSelectorOptions) patchedReselectArgs.push(createSelectorOptions);
 		const cache = options.cacheObject || new FlatObjectCache();
 		const selectorCreator = options.selectorCreator || createSelector;
-		const isValidCacheKey = cache.isValidCacheKey || defaultCacheKeyValidator;
 		if (options.keySelectorCreator) options.keySelector = options.keySelectorCreator({
 			keySelector: options.keySelector,
 			inputSelectors,
@@ -323,7 +321,7 @@ const createCachedSelectorImpl = ((...reselectArgs) => {
 		function selector(state, props) {
 			const argumentCount = arguments.length;
 			const cacheKey = argumentCount === 2 ? keySelector(state, props) : argumentCount === 1 ? keySelector(state) : keySelector.apply(null, arguments);
-			if (!isValidCacheKey(cacheKey)) {
+			if (cache.isValidCacheKey !== void 0 && !cache.isValidCacheKey(cacheKey)) {
 				console.warn(\`[re-reselect] Invalid cache key "\${String(cacheKey)}" has been returned by keySelector function.\`);
 				return;
 			}
@@ -553,7 +551,6 @@ var FlatObjectCache = class {
 };
 //#endregion
 //#region src/createCachedSelector.ts
-const defaultCacheKeyValidator = () => true;
 function isFunction(value) {
 	return typeof value === "function";
 }
@@ -588,7 +585,6 @@ const createCachedSelectorImpl = ((...reselectArgs) => {
 		if (createSelectorOptions) patchedReselectArgs.push(createSelectorOptions);
 		const cache = options.cacheObject || new FlatObjectCache();
 		const selectorCreator = options.selectorCreator || createSelector;
-		const isValidCacheKey = cache.isValidCacheKey || defaultCacheKeyValidator;
 		if (options.keySelectorCreator) options.keySelector = options.keySelectorCreator({
 			keySelector: options.keySelector,
 			inputSelectors,
@@ -610,7 +606,7 @@ const createCachedSelectorImpl = ((...reselectArgs) => {
 		function selector(state, props) {
 			const argumentCount = arguments.length;
 			const cacheKey = argumentCount === 2 ? keySelector(state, props) : argumentCount === 1 ? keySelector(state) : keySelector.apply(null, arguments);
-			if (!isValidCacheKey(cacheKey)) {
+			if (cache.isValidCacheKey !== void 0 && !cache.isValidCacheKey(cacheKey)) {
 				console.warn(\`[re-reselect] Invalid cache key "\${String(cacheKey)}" has been returned by keySelector function.\`);
 				return;
 			}
