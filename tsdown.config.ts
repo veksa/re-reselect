@@ -7,7 +7,13 @@ export default defineConfig([
     entry: ['src/index.ts', 'src/reselectWrapper.ts'],
     format: 'esm',
     outDir: 'dist/es',
-    outExtensions: () => ({ js: '.js' }),
+    // `.mjs`, not `.js`: the package has no `"type": "module"`, so Node reads a
+    // `.js` file as CommonJS and would fail to parse this build. The extension
+    // marks it as ESM regardless, which is what lets `exports.import` point here
+    // without breaking Node consumers.
+    // The declarations stay `.d.ts`: they are condition-agnostic, and a single
+    // `types` entry serves both `import` and `require` (the shape reselect uses).
+    outExtensions: () => ({ js: '.mjs', dts: '.d.ts' }),
     sourcemap: true,
     deps,
     clean: true,
