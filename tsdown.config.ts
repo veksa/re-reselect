@@ -1,6 +1,6 @@
 import { defineConfig } from 'tsdown';
 
-const deps = { neverBundle: ['reselect'] };
+const deps = { neverBundle: ['@veksa/reselect'] };
 
 // webpack 4 resolves the `module` field before `main` (default `mainFields`
 // are `['module', 'main']`, or `['browser', 'module', 'main']` for the web

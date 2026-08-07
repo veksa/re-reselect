@@ -7,7 +7,7 @@ import type {
   OutputSelector,
   Selector,
   SelectorArray,
-} from 'reselect';
+} from '@veksa/reselect';
 
 import type { ICacheObject } from './cache/types';
 

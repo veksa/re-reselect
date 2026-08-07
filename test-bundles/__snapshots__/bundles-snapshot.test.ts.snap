@@ -1,7 +1,7 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`published artifacts > dist/es/index.d.mts is unchanged 1`] = `
-"import { Combiner, CreateSelectorFunction, CreateSelectorOptions, GetParamsFromSelectors, GetStateFromSelectors, OutputSelector, Selector, SelectorArray, SelectorResultsMap, SelectorsObject } from "reselect";
+"import { Combiner, CreateSelectorFunction, CreateSelectorOptions, GetParamsFromSelectors, GetStateFromSelectors, OutputSelector, Selector, SelectorArray, SelectorResultsMap, SelectorsObject } from "@veksa/reselect";
 //#region src/cache/types.d.ts
 interface ICacheObject {
   set(key: any, selectorFn: any): void;
@@ -237,7 +237,7 @@ export { type CreateCachedSelector, type CreateCachedSelectorOptions, FifoMapCac
 `;
 
 exports[`published artifacts > dist/es/index.legacy-esm.js is unchanged 1`] = `
-"import { createSelector, createStructuredSelector, lruMemoize } from "reselect";
+"import { createSelector, createStructuredSelector, lruMemoize } from "@veksa/reselect";
 //#region src/cache/util/isStringOrNumber.ts
 function isStringOrNumber(value) {
 	return typeof value === "string" || typeof value === "number";
@@ -543,7 +543,7 @@ export { FifoMapCache, FifoObjectCache, FlatMapCache, FlatObjectCache, LruMapCac
 `;
 
 exports[`published artifacts > dist/es/index.mjs is unchanged 1`] = `
-"import { createSelector, createStructuredSelector, lruMemoize } from "reselect";
+"import { createSelector, createStructuredSelector, lruMemoize } from "@veksa/reselect";
 //#region src/cache/util/isStringOrNumber.ts
 function isStringOrNumber(value) {
 	return typeof value === "string" || typeof value === "number";

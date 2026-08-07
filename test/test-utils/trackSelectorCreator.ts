@@ -1,4 +1,4 @@
-import { type CreateSelectorFunction, createSelector } from 'reselect';
+import { type CreateSelectorFunction, createSelector } from '@veksa/reselect';
 import { vi } from 'vitest';
 
 /**
