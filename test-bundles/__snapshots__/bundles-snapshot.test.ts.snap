@@ -2,8 +2,8 @@
 
 exports[`UMD bundle > is unchanged 1`] = `
 "(function(global, factory) {
-	typeof exports === "object" && typeof module !== "undefined" ? factory(exports, require("reselect")) : typeof define === "function" && define.amd ? define(["exports", "reselect"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global["Re-reselect"] = {}, global.reselect));
-})(this, function(exports, reselect) {
+	typeof exports === "object" && typeof module !== "undefined" ? factory(exports, require("@veksa/reselect")) : typeof define === "function" && define.amd ? define(["exports", "@veksa/reselect"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global["Re-reselect"] = {}, global.reselect));
+})(this, function(exports, _veksa_reselect) {
 	Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 	//#region src/cache/util/isStringOrNumber.ts
 	function isStringOrNumber(value) {
@@ -82,12 +82,12 @@ exports[`UMD bundle > is unchanged 1`] = `
 				inputSelectors,
 				resultFuncWithRecomputations,
 				{
-					argsMemoize: reselect.lruMemoize,
+					argsMemoize: _veksa_reselect.lruMemoize,
 					...createSelectorOptions
 				}
 			];
 			const cache = options.cacheObject ?? new FlatObjectCache();
-			const selectorCreator = options.selectorCreator ?? reselect.createSelector;
+			const selectorCreator = options.selectorCreator ?? _veksa_reselect.createSelector;
 			if (options.keySelectorCreator) options.keySelector = options.keySelectorCreator({
 				keySelector: options.keySelector,
 				inputSelectors,
@@ -148,7 +148,7 @@ exports[`UMD bundle > is unchanged 1`] = `
 	//#endregion
 	//#region src/createStructuredCachedSelector.ts
 	function createStructuredCachedSelector(selectors) {
-		return (0, reselect.createStructuredSelector)(selectors, createCachedSelector);
+		return (0, _veksa_reselect.createStructuredSelector)(selectors, createCachedSelector);
 	}
 	//#endregion
 	//#region src/cache/util/validateCacheSize.ts

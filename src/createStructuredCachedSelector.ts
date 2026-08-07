@@ -1,4 +1,8 @@
-import type { Selector, SelectorResultsMap, SelectorsObject } from 'reselect';
+import type {
+  Selector,
+  SelectorResultsMap,
+  SelectorsObject,
+} from '@veksa/reselect';
 
 import createCachedSelector from './createCachedSelector';
 import { createStructuredSelector } from './reselectWrapper';

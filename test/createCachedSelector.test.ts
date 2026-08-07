@@ -1,10 +1,10 @@
-import { expectTypeOf } from 'expect-type';
 import {
   type CreateSelectorOptions,
   createSelectorCreator,
   lruMemoize,
   weakMapMemoize,
-} from 'reselect';
+} from '@veksa/reselect';
+import { expectTypeOf } from 'expect-type';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {

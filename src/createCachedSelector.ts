@@ -3,7 +3,7 @@ import {
   type CreateSelectorOptions,
   type SelectorArray,
   lruMemoize,
-} from 'reselect';
+} from '@veksa/reselect';
 
 import FlatObjectCache from './cache/FlatObjectCache';
 import type { ICacheObject } from './cache/types';

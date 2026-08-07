@@ -1,4 +1,4 @@
-import { createSelector, lruMemoize } from 'reselect';
+import { createSelector, lruMemoize } from '@veksa/reselect';
 
 import { createCachedSelector } from '../dist/es/index.js';
 import { project } from './workload.mjs';
