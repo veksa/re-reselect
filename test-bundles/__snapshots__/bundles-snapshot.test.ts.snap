@@ -257,7 +257,7 @@ declare class LruMapCache implements ICacheObject {
   clear(): void;
 }
 //#endregion
-export { type CreateCachedSelector, type CreateCachedSelectorOptions, FifoMapCache, FifoObjectCache, FlatMapCache, FlatObjectCache, type ICacheObject, type KeySelector, type KeySelectorCreator, LruMapCache, LruObjectCache, type OutputCachedSelector, type TypedKeySelector, createCachedSelector, createStructuredCachedSelector };
+export { type CachedSelectorParams, type CreateCachedSelector, type CreateCachedSelectorOptions, FifoMapCache, FifoObjectCache, FlatMapCache, FlatObjectCache, type ICacheObject, type KeySelector, type KeySelectorCreator, LruMapCache, LruObjectCache, type OutputCachedSelector, type TypedKeySelector, createCachedSelector, createStructuredCachedSelector };
 //# sourceMappingURL=index.d.mts.map"
 `;
 
