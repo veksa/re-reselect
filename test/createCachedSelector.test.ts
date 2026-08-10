@@ -210,6 +210,21 @@ describe('createCachedSelector', () => {
 
         expect(selector(state, 'max')).toEqual([{ id: 0, user: 'max' }]);
       });
+
+      it('keeps them when there is no input selector at all', () => {
+        // With an empty input list reselect answers `never` for both the state
+        // and the parameters. The key's own argument has to survive next to
+        // that `never` instead of being dragged down with it, which is what
+        // merging the two argument lists position by position has to get right.
+        const selector = createCachedSelector(
+          [],
+          () => 'result',
+        )({
+          keySelector: (_state: State, user: string) => user,
+        });
+
+        expectTypeOf(selector).parameters.toEqualTypeOf<[never, string]>();
+      });
     });
 
     describe('call arity', () => {
