@@ -145,6 +145,73 @@ describe('createCachedSelector', () => {
       });
     });
 
+    describe('key selector declaring arguments of its own', () => {
+      /**
+       * Choosing the cache instance is the key selector's job, and what it keys on
+       * need not be anything an input selector reads: caching per `userId` while
+       * every input takes only the state is the ordinary shape of that. So the
+       * arguments of a cached selector are the arguments its inputs declare plus
+       * the ones its key declares, and the key is not confined to the former.
+       */
+      type State = { todos: { id: number; user: string }[] };
+
+      const state: State = {
+        todos: [
+          { id: 0, user: 'max' },
+          { id: 1, user: 'tom' },
+        ],
+      };
+
+      it('adds them to the selector arguments', () => {
+        const selector = createCachedSelector(
+          [(state: State) => state.todos],
+          (todos) => todos,
+        )({
+          keySelector: (_state: State, user: string) => user,
+        });
+
+        expectTypeOf(selector).parameters.toEqualTypeOf<[State, string]>();
+
+        expect(selector(state, 'max')).toEqual(state.todos);
+        expect(selector(state, 'tom')).toEqual(state.todos);
+
+        // One instance per key, even though no input selector reads the key.
+        expect(reselect.createSelector).toHaveBeenCalledTimes(2);
+      });
+
+      it('accepts a key selector passed on its own', () => {
+        const selector = createCachedSelector(
+          [(state: State) => state.todos],
+          (todos) => todos,
+        )((_state: State, user: string) => user);
+
+        expectTypeOf(selector).parameters.toEqualTypeOf<[State, string]>();
+
+        expect(selector(state, 'max')).toEqual(state.todos);
+      });
+
+      it('keeps typing the key selector from the inputs when it declares nothing', () => {
+        const selector = createCachedSelector(
+          [
+            (state: State) => state.todos,
+            (_state: State, user: string) => user,
+          ],
+          (todos, user) => todos.filter((todo) => todo.user === user),
+        )({
+          keySelector: (state, user) => {
+            expectTypeOf(state).toEqualTypeOf<State>();
+            expectTypeOf(user).toEqualTypeOf<string>();
+
+            return user;
+          },
+        });
+
+        expectTypeOf(selector).parameters.toEqualTypeOf<[State, string]>();
+
+        expect(selector(state, 'max')).toEqual([{ id: 0, user: 'max' }]);
+      });
+    });
+
     describe('call arity', () => {
       /**
        * The selector dispatches the one- and two-argument shapes directly and only
