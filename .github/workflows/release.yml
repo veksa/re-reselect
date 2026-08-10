@@ -27,16 +27,19 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - run: corepack enable
+
       - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc
+          cache: 'yarn'
 
-      - run: npm ci --ignore-scripts
+      - run: yarn install --immutable --mode=skip-build
 
       - name: Create Release PR or Publish to npm
         uses: changesets/action@v1.9.0
         with:
-          publish: npm run release
+          publish: yarn release
           commit: 'chore: update version for release'
           title: 'chore: update version for release'
         env:
