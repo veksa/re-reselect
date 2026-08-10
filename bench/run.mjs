@@ -1,7 +1,7 @@
 /**
  * Per-call cost of `createCachedSelector`.
  *
- * Run with `npm run bench`, which passes `--expose-gc` so each round starts from a
+ * Run with `yarn bench`, which passes `--expose-gc` so each round starts from a
  * collected heap instead of inheriting whatever the previous one left behind.
  *
  * Two things this deliberately does *not* do. It does not report an average of
