@@ -823,7 +823,7 @@ __metadata:
     "@changesets/cli": "npm:^2.31.1"
     "@trivago/prettier-plugin-sort-imports": "npm:^6.0.2"
     "@types/node": "npm:^26.1.1"
-    "@veksa/reselect": "npm:^5.2.0"
+    "@veksa/reselect": "npm:^5.2.2"
     "@vitest/coverage-v8": "npm:^4.1.10"
     expect-type: "npm:^1.4.0"
     prettier: "npm:^3.9.6"
@@ -832,14 +832,14 @@ __metadata:
     typescript: "npm:^7.0.2"
     vitest: "npm:^4.1.10"
   peerDependencies:
-    "@veksa/reselect": ^5.2.0
+    "@veksa/reselect": ^5.2.2
   languageName: unknown
   linkType: soft
 
-"@veksa/reselect@npm:^5.2.0":
-  version: 5.2.1
-  resolution: "@veksa/reselect@npm:5.2.1"
-  checksum: 10/a7e163f674402948cb0cfdd1efbe29fd8a192cafc93f22f9d07ba8943ace4e13be44eeb56bb5d9b07422b9e116bbe3b57e7a998b389c450feebb344bc0fdb9cf
+"@veksa/reselect@npm:^5.2.2":
+  version: 5.2.2
+  resolution: "@veksa/reselect@npm:5.2.2"
+  checksum: 10/05203a9fc9c76de3a6d3391d0bdcb6377632d0468f3456ded01010f2561965be18865708f49b3558c5b1e252871041fc783ccc19cdcc9b52a3280858b580870b
   languageName: node
   linkType: hard
 
