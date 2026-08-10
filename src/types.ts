@@ -38,19 +38,34 @@ export type TypedKeySelector<
 ) => unknown;
 
 /**
+ * Two argument lists, intersected position by position, keeping whichever runs
+ * longer — the same rule reselect applies across input selectors.
+ *
+ * Either side can be something other than a tuple: `GetParamsFromSelectors`
+ * yields `never` for an empty input list and `any[]` for an unbounded one, and
+ * neither may leak into the merged result, or the selector ends up with
+ * arguments nothing can satisfy.
+ */
+type MergeArgs<Left extends readonly any[], Right extends readonly any[]> = [
+  Left,
+] extends [never]
+  ? Right
+  : [Right] extends [never]
+    ? Left
+    : Left extends readonly [infer LeftHead, ...infer LeftTail]
+      ? Right extends readonly [infer RightHead, ...infer RightTail]
+        ? [LeftHead & RightHead, ...MergeArgs<LeftTail, RightTail>]
+        : Left
+      : Right;
+
+/**
  * The arguments a cached selector accepts: the ones its input selectors declare
  * plus the ones its keySelector declares.
- *
- * Appending the keySelector to the input selectors reuses reselect's own
- * parameter merging rather than restating its rules for intersecting the
- * positions two functions share.
  */
 export type CachedSelectorParams<
   InputSelectors extends SelectorArray,
   KeyParams extends readonly any[],
-> = GetParamsFromSelectors<
-  [...InputSelectors, TypedKeySelector<InputSelectors, KeyParams>]
->;
+> = MergeArgs<GetParamsFromSelectors<InputSelectors>, KeyParams>;
 
 /**
  * A function which receives the selector's inputSelectors/resultFunc/keySelector
