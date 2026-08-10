@@ -77,7 +77,7 @@
     "vitest": "^5.0.0"
   },
   "simple-git-hooks": {
-    "pre-commit": "npm run prepare"
+    "pre-commit": "yarn verify"
   },
   "packageManager": "yarn@4.18.0"
 }
