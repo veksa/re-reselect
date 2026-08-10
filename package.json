@@ -58,14 +58,14 @@
   "author": "Andrea Carraro <me@andreacarraro.it>",
   "license": "MIT",
   "peerDependencies": {
-    "@veksa/reselect": "^5.2.0"
+    "@veksa/reselect": "^5.2.2"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^1.0.1",
     "@changesets/cli": "^3.0.3",
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "@types/node": "^26.1.1",
-    "@veksa/reselect": "^5.2.0",
+    "@veksa/reselect": "^5.2.2",
     "@vitest/coverage-v8": "^5.0.0",
     "expect-type": "^1.4.0",
     "prettier": "^3.9.6",
