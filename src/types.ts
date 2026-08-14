@@ -2,13 +2,11 @@ import type {
   Combiner,
   CreateSelectorFunction,
   CreateSelectorOptions,
-  ExtractMemoizerFields,
   GetParamsFromSelectors,
   GetStateFromSelectors,
-  OutputSelectorFields,
+  OutputSelector,
   Selector,
   SelectorArray,
-  weakMapMemoize,
 } from '@veksa/reselect';
 
 import type { ICacheObject } from './cache/types';
@@ -94,12 +92,22 @@ export type CreateCachedSelectorOptions<
 
 /**
  * The selector instance returned by `createCachedSelector(...)(...)`.
- * Extends reselect's OutputSelector with cache-management methods.
  *
- * Rebuilt from reselect's parts rather than reusing `OutputSelector` whole,
- * because the call signature has to carry {@link CachedSelectorParams} while
- * the fields still describe the input selectors alone — `resultFunc` takes the
- * inputs' results, and the keySelector contributes none.
+ * This type is reconstructed from a plain reselect `Selector` plus **only** the
+ * members re-reselect actually attaches at runtime (see
+ * `createCachedSelector.ts`'s `Object.assign`). It intentionally does **not**
+ * inherit reselect's full `OutputSelector`: that would advertise members which
+ * only exist on the inner, per-cache-key reselect selectors (`memoizedResultFunc`,
+ * `lastResult`, `dependencyRecomputations`, `resetDependencyRecomputations`,
+ * `memoize`, `argsMemoize`, …) — they are absent on the cached selector at
+ * runtime, so surfacing them would type-check and then crash.
+ *
+ * `getMatchingSelector` returns the full `OutputSelector` because the inner
+ * cached selector genuinely is a reselect selector.
+ *
+ * The call signature carries {@link CachedSelectorParams} while the fields
+ * still describe the input selectors alone — `resultFunc` takes the inputs'
+ * results, and the keySelector contributes none.
  *
  * `.keySelector` is exposed using the loose `KeySelector<State>` shape rather
  * than the precise `TypedKeySelector<InputSelectors>` for back-compat with
@@ -114,16 +122,17 @@ export type OutputCachedSelector<
   Result,
   CachedSelectorParams<InputSelectors, KeyParams>
 > &
-  ExtractMemoizerFields<typeof weakMapMemoize> &
-  OutputSelectorFields<InputSelectors, Result> & {
+  // Re-use reselect's own field types, but `Pick` only the ones re-reselect
+  // actually attaches at runtime. The call signature is supplied by the
+  // `Selector<…>` base above, since it can't be `Pick`ed off `OutputSelector`.
+  Pick<
+    OutputSelector<InputSelectors, Result>,
+    'resultFunc' | 'dependencies' | 'recomputations' | 'resetRecomputations'
+  > & {
     getMatchingSelector: (
       state: GetStateFromSelectors<InputSelectors>,
       ...params: CachedSelectorParams<InputSelectors, KeyParams>
-    ) => Selector<
-      GetStateFromSelectors<InputSelectors>,
-      Result,
-      CachedSelectorParams<InputSelectors, KeyParams>
-    >;
+    ) => OutputSelector<InputSelectors, Result>;
     removeMatchingSelector: (
       state: GetStateFromSelectors<InputSelectors>,
       ...params: CachedSelectorParams<InputSelectors, KeyParams>
