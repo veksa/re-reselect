@@ -2,6 +2,11 @@ import { defineConfig } from 'tsdown';
 
 const deps = { neverBundle: ['@veksa/reselect'] };
 
+// The root `tsconfig.json` spans the whole repo (sources, tests, tooling
+// configs) so `npm run type:check` covers everything. The bundler needs the
+// narrower `src`-only view instead.
+const tsconfig = './tsconfig.build.json';
+
 export default defineConfig([
   {
     entry: ['src/index.ts', 'src/reselectWrapper.ts'],
@@ -16,6 +21,7 @@ export default defineConfig([
     outExtensions: () => ({ js: '.mjs', dts: '.d.ts' }),
     sourcemap: true,
     deps,
+    tsconfig,
     clean: true,
     unbundle: false,
   },
@@ -26,6 +32,7 @@ export default defineConfig([
     outExtensions: () => ({ js: '.js' }),
     sourcemap: true,
     deps,
+    tsconfig,
     dts: false,
     clean: false,
     unbundle: false,
@@ -36,6 +43,7 @@ export default defineConfig([
     outDir: 'dist/umd',
     sourcemap: true,
     deps,
+    tsconfig,
     globalName: 'Re-reselect',
     // Keep the browser global named `reselect`: `@veksa/reselect` is a drop-in
     // fork, so UMD consumers shouldn't have to rename the global they load.
