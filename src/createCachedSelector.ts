@@ -120,9 +120,19 @@ const createCachedSelectorImpl = ((
       });
     }
 
+    // Narrowed through the `isFunction` guard rather than asserted, so a
+    // missing keySelector fails here with a descriptive error instead of
+    // crashing lazily on the first call. Reachable only when neither
+    // `keySelector` nor `keySelectorCreator` was supplied.
+    if (!isFunction(options.keySelector)) {
+      throw new Error(
+        '[re-reselect] Missing "keySelector": provide a `keySelector` function or a `keySelectorCreator` that returns one.',
+      );
+    }
+
     // Hoisted out of the call: resolving `options.keySelector` per invocation is a
     // property load on a shared object in the hottest path in the library.
-    const keySelector = options.keySelector as UnknownFunction;
+    const keySelector: UnknownFunction = options.keySelector;
 
     /**
      * Selectors are reached as `(state)` or `(state, props)` in all but exotic
@@ -184,14 +194,12 @@ const createCachedSelectorImpl = ((
 
     return Object.assign(selector, {
       getMatchingSelector: (...args: readonly unknown[]) => {
-        const [state, ...rest] = args;
-        const cacheKey = options.keySelector!(state, ...rest);
+        const cacheKey = keySelector(...args);
         // @NOTE It might update cache hit count in LRU-like caches
         return cache.get(cacheKey);
       },
       removeMatchingSelector: (...args: readonly unknown[]) => {
-        const [state, ...rest] = args;
-        const cacheKey = options.keySelector!(state, ...rest);
+        const cacheKey = keySelector(...args);
         cache.remove(cacheKey);
       },
       clearCache: () => {
@@ -204,7 +212,7 @@ const createCachedSelectorImpl = ((
       resetRecomputations: () => {
         recomputations = 0;
       },
-      keySelector: options.keySelector,
+      keySelector,
     });
   };
 }) as CreateCachedSelectorImpl;
