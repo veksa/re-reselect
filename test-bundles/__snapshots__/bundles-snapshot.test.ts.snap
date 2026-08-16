@@ -159,11 +159,11 @@ exports[`UMD bundle > is unchanged 1`] = `
 	//#endregion
 	//#region src/cache/FifoObjectCache.ts
 	var FifoObjectCache = class {
-		constructor({ cacheSize }) {
+		constructor(options) {
 			this._cache = {};
 			this._cacheOrdering = [];
-			validateCacheSize(cacheSize);
-			this._cacheSize = cacheSize;
+			validateCacheSize(options?.cacheSize);
+			this._cacheSize = options.cacheSize;
 		}
 		set(key, selectorFn) {
 			this._cache[key] = selectorFn;
@@ -192,11 +192,11 @@ exports[`UMD bundle > is unchanged 1`] = `
 	//#endregion
 	//#region src/cache/LruObjectCache.ts
 	var LruObjectCache = class {
-		constructor({ cacheSize }) {
+		constructor(options) {
 			this._cache = {};
 			this._cacheOrdering = [];
-			validateCacheSize(cacheSize);
-			this._cacheSize = cacheSize;
+			validateCacheSize(options?.cacheSize);
+			this._cacheSize = options.cacheSize;
 		}
 		set(key, selectorFn) {
 			this._cache[key] = selectorFn;
@@ -252,10 +252,10 @@ exports[`UMD bundle > is unchanged 1`] = `
 	//#endregion
 	//#region src/cache/FifoMapCache.ts
 	var FifoMapCache = class {
-		constructor({ cacheSize }) {
+		constructor(options) {
 			this._cache = /* @__PURE__ */ new Map();
-			validateCacheSize(cacheSize);
-			this._cacheSize = cacheSize;
+			validateCacheSize(options?.cacheSize);
+			this._cacheSize = options.cacheSize;
 		}
 		set(key, selectorFn) {
 			this._cache.set(key, selectorFn);
@@ -277,10 +277,10 @@ exports[`UMD bundle > is unchanged 1`] = `
 	//#endregion
 	//#region src/cache/LruMapCache.ts
 	var LruMapCache = class {
-		constructor({ cacheSize }) {
+		constructor(options) {
 			this._cache = /* @__PURE__ */ new Map();
-			validateCacheSize(cacheSize);
-			this._cacheSize = cacheSize;
+			validateCacheSize(options?.cacheSize);
+			this._cacheSize = options.cacheSize;
 		}
 		set(key, selectorFn) {
 			this._cache.set(key, selectorFn);
