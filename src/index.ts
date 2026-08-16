@@ -14,11 +14,9 @@ export type { ICacheObject } from './cache/types';
 export type {
   CachedSelectorParams,
   CreateCachedSelector,
-  CreateCachedSelectorImpl,
   CreateCachedSelectorOptions,
   KeySelector,
   KeySelectorCreator,
   OutputCachedSelector,
-  PolymorphicCachedOptions,
   TypedKeySelector,
 } from './types';
