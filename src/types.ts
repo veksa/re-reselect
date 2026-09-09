@@ -29,64 +29,54 @@ export type TypedKeySelector<InputSelectors extends SelectorArray> = (
 ) => unknown;
 
 /**
- * The gate a supplied `keySelector` has to pass — deliberately open at the
- * tail, unlike {@link TypedKeySelector}.
+ * The params a supplied `keySelector` is allowed to declare: the ones the
+ * input selectors declare, then anything further.
  *
- * A keySelector may declare params the input selectors know nothing about:
- * that is how re-reselect expresses a cache dimension whose only job is to
- * pick a cacheKey, as in `(state, props) => props.itemId` over input selectors
- * that read `state` alone. A closed tuple rejects it ("Target signature
- * provides too few arguments").
+ * A keySelector may take params the input selectors know nothing about — that
+ * is how re-reselect expresses a cache dimension whose only job is to pick a
+ * cacheKey, as in `(state, props) => props.itemId` over input selectors that
+ * read `state` alone. {@link TypedKeySelector}'s closed tuple rejects that
+ * ("Target signature provides too few arguments"), so the factory constrains
+ * the keySelector's inferred *params tuple* against this instead.
  *
- * The `any` tail is only ever a *constraint*. Nothing here reaches the
- * finished selector's types: those come from `Parameters<KeySelectorFn>` of
- * the concrete keySelector that was passed (see {@link CachedSelectorParams}),
- * so the extra params stay exactly as the caller declared them. Leading params
- * are still checked — a keySelector contradicting one an input selector
- * declares is rejected.
+ * Constraining the tuple rather than the function type is what keeps the tail
+ * `unknown` instead of `any`: tuple assignability is covariant, so `unknown`
+ * accepts a declared `Props` here, while a `...unknown[]` tail in a *function*
+ * position would be checked contravariantly and reject it. Consequences:
  *
- * The tail does mean an *unannotated* extra param is contextually `any`, since
- * there is nothing to infer it from. That is not flagged the way a mixed-`any`
- * input selector list is (see {@link HasMixedAnyState}): the loose
- * {@link KeySelector} shape is a documented escape hatch, so an `any` here can
- * be deliberate. Annotate the param to get it checked.
- *
- * Not exported from the package root: callers never name it.
+ * - an extra param the caller annotates keeps exactly that type,
+ * - an extra param the caller leaves unannotated is `unknown`, so its uses are
+ *   checked instead of silently passing as `any`,
+ * - a param contradicting one an input selector declares is still rejected.
  */
-type KeySelectorConstraint<InputSelectors extends SelectorArray> = (
-  state: GetStateFromSelectors<InputSelectors>,
-  ...params: [...GetParamsFromSelectors<InputSelectors>, ...any[]]
-) => unknown;
-
-/**
- * A `keySelector` that declares exactly the input selectors' params, i.e. adds
- * no cache dimension of its own. Used as the default when the concrete
- * keySelector type is unknown (a `keySelectorCreator`, or a hand-written
- * `OutputCachedSelector<Inputs, Result>`), so merging it back in is a no-op.
- */
-export type DefaultKeySelector<InputSelectors extends SelectorArray> = Selector<
-  GetStateFromSelectors<InputSelectors>,
-  unknown,
-  GetParamsFromSelectors<InputSelectors>
->;
+type KeySelectorParamsConstraint<InputSelectors extends SelectorArray> = [
+  ...GetParamsFromSelectors<InputSelectors>,
+  ...unknown[],
+];
 
 /**
  * The arguments the finished selector accepts: the input selectors' params
  * merged with any extra params the `keySelector` declares.
  *
- * Appending the keySelector to the selector array and reusing reselect's own
- * `GetParamsFromSelectors` keeps one merge implementation instead of a
- * hand-rolled one — reselect takes the longest params tuple and intersects it
- * element-wise, which is exactly the desired semantics: the caller has to
- * satisfy the input selectors *and* the keySelector, since both receive the
- * same arguments at runtime.
+ * Feeding the keySelector's params back through reselect's own
+ * `GetParamsFromSelectors` (as a synthetic trailing selector) keeps one merge
+ * implementation instead of a hand-rolled one — reselect takes the longest
+ * params tuple and intersects it element-wise, which is exactly the desired
+ * semantics: the caller has to satisfy the input selectors *and* the
+ * keySelector, since both receive the same arguments at runtime.
  */
 export type CachedSelectorParams<
   InputSelectors extends SelectorArray,
-  KeySelectorFn,
-> = KeySelectorFn extends (...args: any[]) => any
-  ? GetParamsFromSelectors<[...InputSelectors, KeySelectorFn]>
-  : GetParamsFromSelectors<InputSelectors>;
+  KeySelectorParams extends readonly unknown[],
+> = GetParamsFromSelectors<
+  [
+    ...InputSelectors,
+    (
+      state: GetStateFromSelectors<InputSelectors>,
+      ...params: KeySelectorParams
+    ) => unknown,
+  ]
+>;
 
 /**
  * A function which receives the selector's inputSelectors/resultFunc/keySelector
@@ -104,9 +94,13 @@ export type KeySelectorCreator<
 export type CreateCachedSelectorOptions<
   InputSelectors extends SelectorArray,
   Result,
-  KeySelectorFn = DefaultKeySelector<InputSelectors>,
+  KeySelectorParams extends readonly unknown[] =
+    GetParamsFromSelectors<InputSelectors>,
 > = {
-  keySelector?: KeySelectorFn;
+  keySelector?: (
+    state: GetStateFromSelectors<InputSelectors>,
+    ...params: KeySelectorParams
+  ) => unknown;
   cacheObject?: ICacheObject;
   selectorCreator?: CreateSelectorFunction<any, any, any>;
   keySelectorCreator?: KeySelectorCreator<InputSelectors, Result>;
@@ -134,11 +128,12 @@ export type CreateCachedSelectorOptions<
 export type OutputCachedSelector<
   InputSelectors extends SelectorArray,
   Result,
-  KeySelectorFn = DefaultKeySelector<InputSelectors>,
+  KeySelectorParams extends readonly unknown[] =
+    GetParamsFromSelectors<InputSelectors>,
 > = Selector<
   GetStateFromSelectors<InputSelectors>,
   Result,
-  CachedSelectorParams<InputSelectors, KeySelectorFn>
+  CachedSelectorParams<InputSelectors, KeySelectorParams>
 > &
   // Re-use reselect's own field types, but `Pick` only the ones re-reselect
   // actually attaches at runtime. The call signature is supplied by the
@@ -152,11 +147,11 @@ export type OutputCachedSelector<
     // declared only by the keySelector has to be passed here too.
     getMatchingSelector: (
       state: GetStateFromSelectors<InputSelectors>,
-      ...params: CachedSelectorParams<InputSelectors, KeySelectorFn>
+      ...params: CachedSelectorParams<InputSelectors, KeySelectorParams>
     ) => OutputSelector<InputSelectors, Result>;
     removeMatchingSelector: (
       state: GetStateFromSelectors<InputSelectors>,
-      ...params: CachedSelectorParams<InputSelectors, KeySelectorFn>
+      ...params: CachedSelectorParams<InputSelectors, KeySelectorParams>
     ) => void;
     clearCache: () => void;
     cache: ICacheObject;
@@ -169,10 +164,14 @@ export type OutputCachedSelector<
 export type PolymorphicCachedOptions<
   InputSelectors extends SelectorArray,
   Result,
-  KeySelectorFn = DefaultKeySelector<InputSelectors>,
+  KeySelectorParams extends readonly unknown[] =
+    GetParamsFromSelectors<InputSelectors>,
 > =
-  | KeySelectorFn
-  | CreateCachedSelectorOptions<InputSelectors, Result, KeySelectorFn>;
+  | ((
+      state: GetStateFromSelectors<InputSelectors>,
+      ...params: KeySelectorParams
+    ) => unknown)
+  | CreateCachedSelectorOptions<InputSelectors, Result, KeySelectorParams>;
 
 /**
  * Message surfaced when input selectors mix a concrete `state` with an
@@ -201,17 +200,36 @@ export type CachedSelectorFactory<
   HasMixedAnyState<InputSelectors> extends true
     ? (error: ImplicitAnyStateError) => never
     : {
-        <KeySelectorFn extends KeySelectorConstraint<InputSelectors>>(
-          keySelector: KeySelectorFn,
-        ): OutputCachedSelector<InputSelectors, Result, KeySelectorFn>;
+        // No default on the keySelector form: the constraint then doubles as
+        // the contextual type for unannotated params, so a param an input
+        // selector declares stays precisely typed and an extra one is
+        // `unknown` rather than `any`.
+        <KeySelectorParams extends KeySelectorParamsConstraint<InputSelectors>>(
+          keySelector: (
+            state: GetStateFromSelectors<InputSelectors>,
+            ...params: KeySelectorParams
+          ) => unknown,
+        ): OutputCachedSelector<InputSelectors, Result, KeySelectorParams>;
 
-        <KeySelectorFn extends KeySelectorConstraint<InputSelectors>>(
+        // The options form does need a default: `keySelector` is optional
+        // there (a `keySelectorCreator` may supply it instead), and with
+        // nothing to infer from, falling back to the constraint would leave
+        // the selector with an open `...unknown[]` tail. Spelling the default
+        // as a variadic tuple lets TypeScript match it against the
+        // constraint's variadic prefix while `InputSelectors` is still a type
+        // parameter.
+        <
+          KeySelectorParams extends
+            KeySelectorParamsConstraint<InputSelectors> = [
+            ...GetParamsFromSelectors<InputSelectors>,
+          ],
+        >(
           options: CreateCachedSelectorOptions<
             InputSelectors,
             Result,
-            KeySelectorFn
+            KeySelectorParams
           >,
-        ): OutputCachedSelector<InputSelectors, Result, KeySelectorFn>;
+        ): OutputCachedSelector<InputSelectors, Result, KeySelectorParams>;
       };
 
 /**

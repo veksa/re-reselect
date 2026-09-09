@@ -16,7 +16,6 @@ export type {
   CachedSelectorParams,
   CreateCachedSelector,
   CreateCachedSelectorOptions,
-  DefaultKeySelector,
   ImplicitAnyStateError,
   KeySelector,
   KeySelectorCreator,

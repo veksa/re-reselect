@@ -231,6 +231,38 @@ describe('createCachedSelector use cases', () => {
         [State, string]
       >();
     });
+
+    it('types an unannotated extra param as `unknown`, not `any`', () => {
+      const selector = createCachedSelector(
+        (state: State) => state.total,
+        (total) => total,
+      )((state, tenant) => {
+        // Nothing declares `tenant`, so there is nothing to infer it from.
+        // `unknown` keeps its uses checked; `any` would wave them through.
+        expectTypeOf(tenant).toBeUnknown();
+
+        // @ts-expect-error `tenant` is `unknown` until narrowed
+        tenant.toFixed(0);
+
+        return String(tenant);
+      });
+
+      expectTypeOf(selector).parameters.toEqualTypeOf<[State, unknown]>();
+      expect(selector(state, 7)).toBe(42);
+    });
+
+    it('keeps the input params when only a keySelectorCreator is given', () => {
+      const selector = createCachedSelector(
+        (state: State) => state.items,
+        (state: State, id: string) => id,
+        (items, id) => items[id],
+      )({ keySelectorCreator: () => (state, id) => id });
+
+      // No keySelector to infer an extra dimension from, so the selector takes
+      // exactly what the input selectors declare — no open `unknown` tail.
+      expectTypeOf(selector).parameters.toEqualTypeOf<[State, string]>();
+      expect(selector(state, 'b')).toBe(2);
+    });
   });
 
   describe('multiple parametric selectors', () => {
