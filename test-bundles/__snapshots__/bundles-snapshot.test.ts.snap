@@ -1,6 +1,259 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`UMD bundle > is unchanged 1`] = `
+exports[`published artifacts > dist/es/index.d.ts is unchanged 1`] = `
+"import { Combiner, CreateSelectorFunction, CreateSelectorOptions, GetParamsFromSelectors, GetStateFromSelectors, OutputSelector, Selector, SelectorArray, SelectorResultsMap, SelectorsObject } from "@veksa/reselect";
+//#region src/cache/types.d.ts
+interface ICacheObject {
+  set(key: any, selectorFn: any): void;
+  get(key: any): any;
+  remove(key: any): void;
+  clear(): void;
+  isValidCacheKey?(key: any): boolean;
+}
+type ObjectCacheKey = string | number;
+//#endregion
+//#region src/types.d.ts
+/**
+ * A function which takes the same arguments as the selector and returns a cacheKey.
+ * The cacheKey is used to look up the matching reselect selector in the cache.
+ */
+type KeySelector<S> = (state: S, ...args: any[]) => any;
+/**
+ * keySelector type with parameters inferred from the parent selector's input selectors.
+ * Used to give precise types to the user-supplied keySelector callback at call sites.
+ *
+ * \`KeyParams\` defaults to the input selectors' parameters, so an inline callback
+ * that annotates nothing still gets them contextually. A keySelector that
+ * declares its own arguments overrides that default: choosing the cache
+ * instance is its job, and what it keys on need not be anything an input
+ * selector reads.
+ */
+type TypedKeySelector<InputSelectors extends SelectorArray, KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>> = (state: GetStateFromSelectors<InputSelectors>, ...params: KeyParams) => unknown;
+/**
+ * Two argument lists, intersected position by position, keeping whichever runs
+ * longer — the same rule reselect applies across input selectors.
+ *
+ * Either side can be something other than a tuple: \`GetParamsFromSelectors\`
+ * yields \`never\` for an empty input list and \`any[]\` for an unbounded one, and
+ * neither may leak into the merged result, or the selector ends up with
+ * arguments nothing can satisfy.
+ */
+type MergeArgs<Left extends readonly any[], Right extends readonly any[]> = [Left] extends [never] ? Right : [Right] extends [never] ? Left : Left extends readonly [infer LeftHead, ...infer LeftTail] ? Right extends readonly [infer RightHead, ...infer RightTail] ? [LeftHead & RightHead, ...MergeArgs<LeftTail, RightTail>] : Left : Right;
+/**
+ * The arguments a cached selector accepts: the ones its input selectors declare
+ * plus the ones its keySelector declares.
+ */
+type CachedSelectorParams<InputSelectors extends SelectorArray, KeyParams extends readonly any[]> = MergeArgs<GetParamsFromSelectors<InputSelectors>, KeyParams>;
+/**
+ * A function which receives the selector's inputSelectors/resultFunc/keySelector
+ * and returns the keySelector to be used at runtime.
+ */
+type KeySelectorCreator<InputSelectors extends SelectorArray, Result, KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>> = (selectorInputs: {
+  inputSelectors: InputSelectors;
+  resultFunc: Combiner<InputSelectors, Result>;
+  keySelector?: TypedKeySelector<InputSelectors, KeyParams>;
+}) => TypedKeySelector<InputSelectors, KeyParams>;
+type CreateCachedSelectorOptions<InputSelectors extends SelectorArray, Result, KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>> = {
+  keySelector?: TypedKeySelector<InputSelectors, KeyParams>;
+  cacheObject?: ICacheObject;
+  selectorCreator?: CreateSelectorFunction<any, any, any>;
+  keySelectorCreator?: KeySelectorCreator<InputSelectors, Result, KeyParams>;
+};
+/**
+ * The selector instance returned by \`createCachedSelector(...)(...)\`.
+ *
+ * This type is reconstructed from a plain reselect \`Selector\` plus **only** the
+ * members re-reselect actually attaches at runtime (see
+ * \`createCachedSelector.ts\`'s \`Object.assign\`). It intentionally does **not**
+ * inherit reselect's full \`OutputSelector\`: that would advertise members which
+ * only exist on the inner, per-cache-key reselect selectors (\`memoizedResultFunc\`,
+ * \`lastResult\`, \`dependencyRecomputations\`, \`resetDependencyRecomputations\`,
+ * \`memoize\`, \`argsMemoize\`, …) — they are absent on the cached selector at
+ * runtime, so surfacing them would type-check and then crash.
+ *
+ * \`getMatchingSelector\` returns the full \`OutputSelector\` because the inner
+ * cached selector genuinely is a reselect selector.
+ *
+ * The call signature carries {@link CachedSelectorParams} while the fields
+ * still describe the input selectors alone — \`resultFunc\` takes the inputs'
+ * results, and the keySelector contributes none.
+ *
+ * \`.keySelector\` is exposed using the loose \`KeySelector<State>\` shape rather
+ * than the precise \`TypedKeySelector<InputSelectors>\` for back-compat with
+ * consumers that test the type against \`KeySelector<State>\`.
+ */
+type OutputCachedSelector<InputSelectors extends SelectorArray, Result, KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>> = Selector<GetStateFromSelectors<InputSelectors>, Result, CachedSelectorParams<InputSelectors, KeyParams>> & Pick<OutputSelector<InputSelectors, Result>, 'resultFunc' | 'dependencies' | 'recomputations' | 'resetRecomputations'> & {
+  getMatchingSelector: (state: GetStateFromSelectors<InputSelectors>, ...params: CachedSelectorParams<InputSelectors, KeyParams>) => OutputSelector<InputSelectors, Result>;
+  removeMatchingSelector: (state: GetStateFromSelectors<InputSelectors>, ...params: CachedSelectorParams<InputSelectors, KeyParams>) => void;
+  clearCache: () => void;
+  cache: ICacheObject;
+  keySelector: KeySelector<GetStateFromSelectors<InputSelectors>>;
+};
+/**
+ * The curried second-call argument: a \`keySelector\` function or an options object.
+ */
+type PolymorphicCachedOptions<InputSelectors extends SelectorArray, Result, KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>> = TypedKeySelector<InputSelectors, KeyParams> | CreateCachedSelectorOptions<InputSelectors, Result, KeyParams>;
+/**
+ * Just the callable signatures of \`createCachedSelector\`, without \`withTypes\`.
+ * Split out so the runtime implementation can be typed against it directly
+ * (TypeScript's \`Omit\` strips call signatures, so this can't be derived from
+ * \`CreateCachedSelector\` after the fact).
+ *
+ * Three overloads (variadic, variadic+options, array+options) using tuple
+ * inference instead of per-arity overload duplication, mirroring reselect's
+ * \`CreateSelectorFunction\` pattern.
+ *
+ * \`StateType\` is the state type shared by all input selectors. It defaults to
+ * \`any\` and is narrowed via \`withTypes\` to pre-type the selector creator.
+ *
+ * The curried call is generic in \`KeyParams\` so a keySelector that declares its
+ * own arguments widens the resulting selector instead of being rejected.
+ */
+interface CreateCachedSelectorImpl<StateType = any> {
+  <InputSelectors extends SelectorArray<StateType>, Result>(...createSelectorArgs: [...inputSelectors: InputSelectors, combiner: Combiner<InputSelectors, Result>]): <KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>>(polymorphicOptions: PolymorphicCachedOptions<InputSelectors, Result, KeyParams>) => OutputCachedSelector<InputSelectors, Result, KeyParams>;
+  <InputSelectors extends SelectorArray<StateType>, Result>(...createSelectorArgs: [...inputSelectors: InputSelectors, combiner: Combiner<InputSelectors, Result>, createSelectorOptions: CreateSelectorOptions]): <KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>>(polymorphicOptions: PolymorphicCachedOptions<InputSelectors, Result, KeyParams>) => OutputCachedSelector<InputSelectors, Result, KeyParams>;
+  <InputSelectors extends SelectorArray<StateType>, Result>(inputSelectors: [...InputSelectors], combiner: Combiner<InputSelectors, Result>, createSelectorOptions?: CreateSelectorOptions): <KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>>(polymorphicOptions: PolymorphicCachedOptions<InputSelectors, Result, KeyParams>) => OutputCachedSelector<InputSelectors, Result, KeyParams>;
+}
+/**
+ * The full \`createCachedSelector\` surface: callable signatures plus the
+ * \`withTypes\` helper for pre-typing the state.
+ */
+interface CreateCachedSelector<StateType = any> extends CreateCachedSelectorImpl<StateType> {
+  /**
+   * Creates a "pre-typed" version of \`createCachedSelector\` where the \`state\`
+   * type is predefined.
+   *
+   * This lets you set the \`state\` type once, removing the need to specify it
+   * on every input selector across all \`createCachedSelector\` calls.
+   *
+   * @returns A pre-typed \`createCachedSelector\` with the state type baked in.
+   */
+  withTypes: <OverrideStateType extends StateType>() => CreateCachedSelector<OverrideStateType>;
+}
+//#endregion
+//#region src/createCachedSelector.d.ts
+declare const createCachedSelector: CreateCachedSelector;
+//#endregion
+//#region src/typeUtils.d.ts
+/**
+ * Distributes a union \`A | B | C\` into an intersection \`A & B & C\` by exploiting
+ * contravariance of function parameters. Building block for {@link LastOf}.
+ */
+type UnionToIntersection<Union> = (Union extends unknown ? (distributedUnion: Union) => void : never) extends ((mergedIntersection: infer Intersection) => void) ? Intersection : never;
+/**
+ * Extracts the "last" member of a union. Order is an implementation detail of
+ * the compiler's overload resolution, but it is stable, which is all
+ * {@link TuplifyUnion} needs to peel members off one at a time.
+ */
+type LastOf<T> = UnionToIntersection<T extends any ? () => T : never> extends (() => infer R) ? R : never;
+/**
+ * Converts a union \`A | B | C\` into a tuple \`[A, B, C]\` by repeatedly pulling
+ * off {@link LastOf} and excluding it until the union is \`never\`.
+ */
+type TuplifyUnion<T, L = LastOf<T>, N = [T] extends [never] ? true : false> = true extends N ? [] : [...TuplifyUnion<Exclude<T, L>>, L];
+/**
+ * Type-level \`Object.values()\`: converts a SelectorsObject
+ * \`{ foo: Selector, bar: Selector }\` into the ordered tuple
+ * \`[Selector, Selector]\` that reselect's \`MergeParameters\` needs to infer
+ * state and params. An unordered \`Array<T[keyof T]>\` collapses the selectors
+ * to a union and loses per-position params (second args resolve to \`never\`),
+ * so a real tuple is required. Mirrors reselect's internal
+ * \`ObjectValuesToTuple\` (not exported from the package).
+ */
+type SelectorsObjectToTuple<T extends SelectorsObject<any>, KS extends any[] = TuplifyUnion<keyof T>, R extends Selector[] = []> = KS extends [infer K, ...infer KT] ? SelectorsObjectToTuple<T, KT, [...R, T[K & keyof T]]> : R;
+//#endregion
+//#region src/createStructuredCachedSelector.d.ts
+/**
+ * The returned thunk preserves the cached-selector public surface
+ * (\`getMatchingSelector\`, \`removeMatchingSelector\`, \`clearCache\`, \`cache\`,
+ * \`keySelector\`, plus reselect's \`OutputSelector\` fields) and exposes
+ * the structured shape as the selector's \`Result\`.
+ */
+type StructuredCachedSelector<InputSelectorsObject extends SelectorsObject<any>> = (polymorphicOptions: PolymorphicCachedOptions<SelectorsObjectToTuple<InputSelectorsObject>, SelectorResultsMap<InputSelectorsObject>>) => OutputCachedSelector<SelectorsObjectToTuple<InputSelectorsObject>, SelectorResultsMap<InputSelectorsObject>>;
+declare function createStructuredCachedSelector<InputSelectorsObject extends SelectorsObject<any>>(selectors: InputSelectorsObject): StructuredCachedSelector<InputSelectorsObject>;
+//#endregion
+//#region src/cache/FlatObjectCache.d.ts
+declare class FlatObjectCache implements ICacheObject {
+  private _cache;
+  set(key: ObjectCacheKey, selectorFn: any): void;
+  get(key: ObjectCacheKey): any;
+  remove(key: ObjectCacheKey): void;
+  clear(): void;
+  isValidCacheKey(cacheKey: ObjectCacheKey): boolean;
+}
+//#endregion
+//#region src/cache/FifoObjectCache.d.ts
+declare class FifoObjectCache implements ICacheObject {
+  private _cache;
+  private _cacheOrdering;
+  private _cacheSize;
+  constructor(options: {
+    cacheSize: number;
+  });
+  set(key: ObjectCacheKey, selectorFn: any): void;
+  get(key: ObjectCacheKey): any;
+  remove(key: ObjectCacheKey): void;
+  clear(): void;
+  isValidCacheKey(cacheKey: ObjectCacheKey): boolean;
+}
+//#endregion
+//#region src/cache/LruObjectCache.d.ts
+declare class LruObjectCache implements ICacheObject {
+  private _cache;
+  private _cacheOrdering;
+  private _cacheSize;
+  constructor(options: {
+    cacheSize: number;
+  });
+  set(key: ObjectCacheKey, selectorFn: any): void;
+  get(key: ObjectCacheKey): any;
+  remove(key: ObjectCacheKey): void;
+  clear(): void;
+  isValidCacheKey(cacheKey: ObjectCacheKey): boolean;
+  private _registerCacheHit;
+  private _deleteCacheHit;
+}
+//#endregion
+//#region src/cache/FlatMapCache.d.ts
+declare class FlatMapCache implements ICacheObject {
+  private _cache;
+  set(key: any, selectorFn: any): void;
+  get(key: any): any;
+  remove(key: any): void;
+  clear(): void;
+}
+//#endregion
+//#region src/cache/FifoMapCache.d.ts
+declare class FifoMapCache implements ICacheObject {
+  private _cache;
+  private _cacheSize;
+  constructor(options: {
+    cacheSize: number;
+  });
+  set(key: any, selectorFn: any): void;
+  get(key: any): any;
+  remove(key: any): void;
+  clear(): void;
+}
+//#endregion
+//#region src/cache/LruMapCache.d.ts
+declare class LruMapCache implements ICacheObject {
+  private _cache;
+  private _cacheSize;
+  constructor(options: {
+    cacheSize: number;
+  });
+  set(key: any, selectorFn: any): void;
+  get(key: any): any;
+  remove(key: any): void;
+  clear(): void;
+}
+//#endregion
+export { type CachedSelectorParams, type CreateCachedSelector, type CreateCachedSelectorOptions, FifoMapCache, FifoObjectCache, FlatMapCache, FlatObjectCache, type ICacheObject, type KeySelector, type KeySelectorCreator, LruMapCache, LruObjectCache, type OutputCachedSelector, type TypedKeySelector, createCachedSelector, createStructuredCachedSelector };
+//# sourceMappingURL=index.d.ts.map"
+`;
+
+exports[`published artifacts > dist/umd/index.umd.js is unchanged 1`] = `
 "(function(global, factory) {
 	typeof exports === "object" && typeof module !== "undefined" ? factory(exports, require("@veksa/reselect")) : typeof define === "function" && define.amd ? define(["exports", "@veksa/reselect"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global["Re-reselect"] = {}, global.reselect));
 })(this, function(exports, _veksa_reselect) {
