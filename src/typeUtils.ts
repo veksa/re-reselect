@@ -1,4 +1,8 @@
-import type { Selector, SelectorsObject } from '@veksa/reselect';
+import type {
+  Selector,
+  SelectorArray,
+  SelectorsObject,
+} from '@veksa/reselect';
 
 /**
  * Distributes a union `A | B | C` into an intersection `A & B & C` by exploiting
@@ -46,3 +50,43 @@ export type SelectorsObjectToTuple<
 > = KS extends [infer K, ...infer KT]
   ? SelectorsObjectToTuple<T, KT, [...R, T[K & keyof T]]>
   : R;
+
+/**
+ * `true` only for `any`. Relies on `any` being the one type for which
+ * `0 extends 1 & T` holds, since `1 & any` is `any`.
+ */
+export type IsAny<T> = 0 extends 1 & T ? true : false;
+
+/** The `state` parameter of a single input selector. */
+type StateOfSelector<S> = S extends (state: infer State, ...args: any[]) => any
+  ? State
+  : never;
+
+/** `IsAny<state>` for every input selector, as a `true | false` union. */
+type AnyStateFlags<InputSelectors extends SelectorArray> =
+  InputSelectors[number] extends infer InputSelector
+    ? InputSelector extends unknown
+      ? IsAny<StateOfSelector<InputSelector>>
+      : never
+    : never;
+
+/**
+ * `true` when some input selectors declare a concrete `state` and others fall
+ * back to `any`.
+ *
+ * reselect v5 cannot contextually type an inline input selector while it is
+ * still inferring the input tuple, so an unannotated `(state) => state.foo`
+ * sitting next to an annotated one silently resolves to `any` — and that `any`
+ * then propagates into the combiner arguments and the selector's result. The
+ * old hand-written per-arity overloads typed those selectors correctly, so an
+ * upgrade would quietly drop type safety rather than report anything.
+ *
+ * Flagging the mixed case restores a diagnostic. A uniformly-`any` selector
+ * list is left alone: that shape is a deliberate opt-out, not an accident.
+ */
+export type HasMixedAnyState<InputSelectors extends SelectorArray> =
+  true extends AnyStateFlags<InputSelectors>
+    ? false extends AnyStateFlags<InputSelectors>
+      ? true
+      : false
+    : false;

@@ -12,6 +12,58 @@ interface ICacheObject {
 }
 type ObjectCacheKey = string | number;
 //#endregion
+//#region src/typeUtils.d.ts
+/**
+ * Distributes a union \`A | B | C\` into an intersection \`A & B & C\` by exploiting
+ * contravariance of function parameters. Building block for {@link LastOf}.
+ */
+type UnionToIntersection<Union> = (Union extends unknown ? (distributedUnion: Union) => void : never) extends ((mergedIntersection: infer Intersection) => void) ? Intersection : never;
+/**
+ * Extracts the "last" member of a union. Order is an implementation detail of
+ * the compiler's overload resolution, but it is stable, which is all
+ * {@link TuplifyUnion} needs to peel members off one at a time.
+ */
+type LastOf<T> = UnionToIntersection<T extends any ? () => T : never> extends (() => infer R) ? R : never;
+/**
+ * Converts a union \`A | B | C\` into a tuple \`[A, B, C]\` by repeatedly pulling
+ * off {@link LastOf} and excluding it until the union is \`never\`.
+ */
+type TuplifyUnion<T, L = LastOf<T>, N = [T] extends [never] ? true : false> = true extends N ? [] : [...TuplifyUnion<Exclude<T, L>>, L];
+/**
+ * Type-level \`Object.values()\`: converts a SelectorsObject
+ * \`{ foo: Selector, bar: Selector }\` into the ordered tuple
+ * \`[Selector, Selector]\` that reselect's \`MergeParameters\` needs to infer
+ * state and params. An unordered \`Array<T[keyof T]>\` collapses the selectors
+ * to a union and loses per-position params (second args resolve to \`never\`),
+ * so a real tuple is required. Mirrors reselect's internal
+ * \`ObjectValuesToTuple\` (not exported from the package).
+ */
+type SelectorsObjectToTuple<T extends SelectorsObject<any>, KS extends any[] = TuplifyUnion<keyof T>, R extends Selector[] = []> = KS extends [infer K, ...infer KT] ? SelectorsObjectToTuple<T, KT, [...R, T[K & keyof T]]> : R;
+/**
+ * \`true\` only for \`any\`. Relies on \`any\` being the one type for which
+ * \`0 extends 1 & T\` holds, since \`1 & any\` is \`any\`.
+ */
+type IsAny<T> = 0 extends 1 & T ? true : false;
+/** The \`state\` parameter of a single input selector. */
+type StateOfSelector<S> = S extends ((state: infer State, ...args: any[]) => any) ? State : never;
+/** \`IsAny<state>\` for every input selector, as a \`true | false\` union. */
+type AnyStateFlags<InputSelectors extends SelectorArray> = InputSelectors[number] extends (infer InputSelector) ? InputSelector extends unknown ? IsAny<StateOfSelector<InputSelector>> : never : never;
+/**
+ * \`true\` when some input selectors declare a concrete \`state\` and others fall
+ * back to \`any\`.
+ *
+ * reselect v5 cannot contextually type an inline input selector while it is
+ * still inferring the input tuple, so an unannotated \`(state) => state.foo\`
+ * sitting next to an annotated one silently resolves to \`any\` — and that \`any\`
+ * then propagates into the combiner arguments and the selector's result. The
+ * old hand-written per-arity overloads typed those selectors correctly, so an
+ * upgrade would quietly drop type safety rather than report anything.
+ *
+ * Flagging the mixed case restores a diagnostic. A uniformly-\`any\` selector
+ * list is left alone: that shape is a deliberate opt-out, not an accident.
+ */
+type HasMixedAnyState<InputSelectors extends SelectorArray> = true extends AnyStateFlags<InputSelectors> ? false extends AnyStateFlags<InputSelectors> ? true : false : false;
+//#endregion
 //#region src/types.d.ts
 /**
  * A function which takes the same arguments as the selector and returns a cacheKey.
@@ -94,6 +146,21 @@ type OutputCachedSelector<InputSelectors extends SelectorArray, Result, KeyParam
  */
 type PolymorphicCachedOptions<InputSelectors extends SelectorArray, Result, KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>> = TypedKeySelector<InputSelectors, KeyParams> | CreateCachedSelectorOptions<InputSelectors, Result, KeyParams>;
 /**
+ * Message surfaced when input selectors mix a concrete \`state\` with an
+ * implicit \`any\` one. It is the *parameter* type of the returned factory, so
+ * the compiler prints the sentence itself at the \`(keySelector)\` call rather
+ * than a bare "not callable".
+ */
+type ImplicitAnyStateError = '[re-reselect] Some input selectors have an implicitly \`any\` state while others are typed, so the combiner arguments and the result silently degrade to \`any\`. Annotate \`state\` on every input selector, or pre-type them with createCachedSelector.withTypes<State>().';
+/**
+ * The curried second call of \`createCachedSelector(...)\`.
+ *
+ * Degrades to a single-parameter function typed with {@link ImplicitAnyStateError}
+ * when {@link HasMixedAnyState} holds, turning what used to be a silent \`any\`
+ * into a compile error that names the fix.
+ */
+type CachedSelectorFactory<InputSelectors extends SelectorArray, Result> = HasMixedAnyState<InputSelectors> extends true ? (error: ImplicitAnyStateError) => never : <KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>>(polymorphicOptions: PolymorphicCachedOptions<InputSelectors, Result, KeyParams>) => OutputCachedSelector<InputSelectors, Result, KeyParams>;
+/**
  * Just the callable signatures of \`createCachedSelector\`, without \`withTypes\`.
  * Split out so the runtime implementation can be typed against it directly
  * (TypeScript's \`Omit\` strips call signatures, so this can't be derived from
@@ -110,9 +177,9 @@ type PolymorphicCachedOptions<InputSelectors extends SelectorArray, Result, KeyP
  * own arguments widens the resulting selector instead of being rejected.
  */
 interface CreateCachedSelectorImpl<StateType = any> {
-  <InputSelectors extends SelectorArray<StateType>, Result>(...createSelectorArgs: [...inputSelectors: InputSelectors, combiner: Combiner<InputSelectors, Result>]): <KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>>(polymorphicOptions: PolymorphicCachedOptions<InputSelectors, Result, KeyParams>) => OutputCachedSelector<InputSelectors, Result, KeyParams>;
-  <InputSelectors extends SelectorArray<StateType>, Result>(...createSelectorArgs: [...inputSelectors: InputSelectors, combiner: Combiner<InputSelectors, Result>, createSelectorOptions: CreateSelectorOptions]): <KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>>(polymorphicOptions: PolymorphicCachedOptions<InputSelectors, Result, KeyParams>) => OutputCachedSelector<InputSelectors, Result, KeyParams>;
-  <InputSelectors extends SelectorArray<StateType>, Result>(inputSelectors: [...InputSelectors], combiner: Combiner<InputSelectors, Result>, createSelectorOptions?: CreateSelectorOptions): <KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>>(polymorphicOptions: PolymorphicCachedOptions<InputSelectors, Result, KeyParams>) => OutputCachedSelector<InputSelectors, Result, KeyParams>;
+  <InputSelectors extends SelectorArray<StateType>, Result>(...createSelectorArgs: [...inputSelectors: InputSelectors, combiner: Combiner<InputSelectors, Result>]): CachedSelectorFactory<InputSelectors, Result>;
+  <InputSelectors extends SelectorArray<StateType>, Result>(...createSelectorArgs: [...inputSelectors: InputSelectors, combiner: Combiner<InputSelectors, Result>, createSelectorOptions: CreateSelectorOptions]): CachedSelectorFactory<InputSelectors, Result>;
+  <InputSelectors extends SelectorArray<StateType>, Result>(inputSelectors: [...InputSelectors], combiner: Combiner<InputSelectors, Result>, createSelectorOptions?: CreateSelectorOptions): CachedSelectorFactory<InputSelectors, Result>;
 }
 /**
  * The full \`createCachedSelector\` surface: callable signatures plus the
@@ -133,34 +200,6 @@ interface CreateCachedSelector<StateType = any> extends CreateCachedSelectorImpl
 //#endregion
 //#region src/createCachedSelector.d.ts
 declare const createCachedSelector: CreateCachedSelector;
-//#endregion
-//#region src/typeUtils.d.ts
-/**
- * Distributes a union \`A | B | C\` into an intersection \`A & B & C\` by exploiting
- * contravariance of function parameters. Building block for {@link LastOf}.
- */
-type UnionToIntersection<Union> = (Union extends unknown ? (distributedUnion: Union) => void : never) extends ((mergedIntersection: infer Intersection) => void) ? Intersection : never;
-/**
- * Extracts the "last" member of a union. Order is an implementation detail of
- * the compiler's overload resolution, but it is stable, which is all
- * {@link TuplifyUnion} needs to peel members off one at a time.
- */
-type LastOf<T> = UnionToIntersection<T extends any ? () => T : never> extends (() => infer R) ? R : never;
-/**
- * Converts a union \`A | B | C\` into a tuple \`[A, B, C]\` by repeatedly pulling
- * off {@link LastOf} and excluding it until the union is \`never\`.
- */
-type TuplifyUnion<T, L = LastOf<T>, N = [T] extends [never] ? true : false> = true extends N ? [] : [...TuplifyUnion<Exclude<T, L>>, L];
-/**
- * Type-level \`Object.values()\`: converts a SelectorsObject
- * \`{ foo: Selector, bar: Selector }\` into the ordered tuple
- * \`[Selector, Selector]\` that reselect's \`MergeParameters\` needs to infer
- * state and params. An unordered \`Array<T[keyof T]>\` collapses the selectors
- * to a union and loses per-position params (second args resolve to \`never\`),
- * so a real tuple is required. Mirrors reselect's internal
- * \`ObjectValuesToTuple\` (not exported from the package).
- */
-type SelectorsObjectToTuple<T extends SelectorsObject<any>, KS extends any[] = TuplifyUnion<keyof T>, R extends Selector[] = []> = KS extends [infer K, ...infer KT] ? SelectorsObjectToTuple<T, KT, [...R, T[K & keyof T]]> : R;
 //#endregion
 //#region src/createStructuredCachedSelector.d.ts
 /**
@@ -249,7 +288,7 @@ declare class LruMapCache implements ICacheObject {
   clear(): void;
 }
 //#endregion
-export { type CachedSelectorParams, type CreateCachedSelector, type CreateCachedSelectorOptions, FifoMapCache, FifoObjectCache, FlatMapCache, FlatObjectCache, type ICacheObject, type KeySelector, type KeySelectorCreator, LruMapCache, LruObjectCache, type OutputCachedSelector, type TypedKeySelector, createCachedSelector, createStructuredCachedSelector };
+export { type CachedSelectorFactory, type CachedSelectorParams, type CreateCachedSelector, type CreateCachedSelectorOptions, FifoMapCache, FifoObjectCache, FlatMapCache, FlatObjectCache, type ICacheObject, type ImplicitAnyStateError, type KeySelector, type KeySelectorCreator, LruMapCache, LruObjectCache, type OutputCachedSelector, type TypedKeySelector, createCachedSelector, createStructuredCachedSelector };
 //# sourceMappingURL=index.d.ts.map"
 `;
 

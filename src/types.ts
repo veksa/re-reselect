@@ -10,6 +10,7 @@ import type {
 } from '@veksa/reselect';
 
 import type { ICacheObject } from './cache/types';
+import type { HasMixedAnyState } from './typeUtils';
 
 /**
  * A function which takes the same arguments as the selector and returns a cacheKey.
@@ -154,6 +155,38 @@ export type PolymorphicCachedOptions<
   | CreateCachedSelectorOptions<InputSelectors, Result, KeyParams>;
 
 /**
+ * Message surfaced when input selectors mix a concrete `state` with an
+ * implicit `any` one. It is the *parameter* type of the returned factory, so
+ * the compiler prints the sentence itself at the `(keySelector)` call rather
+ * than a bare "not callable".
+ */
+export type ImplicitAnyStateError =
+  '[re-reselect] Some input selectors have an implicitly `any` state while others are typed, so the combiner arguments and the result silently degrade to `any`. Annotate `state` on every input selector, or pre-type them with createCachedSelector.withTypes<State>().';
+
+/**
+ * The curried second call of `createCachedSelector(...)`.
+ *
+ * Degrades to a single-parameter function typed with {@link ImplicitAnyStateError}
+ * when {@link HasMixedAnyState} holds, turning what used to be a silent `any`
+ * into a compile error that names the fix.
+ */
+export type CachedSelectorFactory<
+  InputSelectors extends SelectorArray,
+  Result,
+> =
+  HasMixedAnyState<InputSelectors> extends true
+    ? (error: ImplicitAnyStateError) => never
+    : <
+        KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>,
+      >(
+        polymorphicOptions: PolymorphicCachedOptions<
+          InputSelectors,
+          Result,
+          KeyParams
+        >,
+      ) => OutputCachedSelector<InputSelectors, Result, KeyParams>;
+
+/**
  * Just the callable signatures of `createCachedSelector`, without `withTypes`.
  * Split out so the runtime implementation can be typed against it directly
  * (TypeScript's `Omit` strips call signatures, so this can't be derived from
@@ -175,15 +208,7 @@ export interface CreateCachedSelectorImpl<StateType = any> {
       ...inputSelectors: InputSelectors,
       combiner: Combiner<InputSelectors, Result>,
     ]
-  ): <
-    KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>,
-  >(
-    polymorphicOptions: PolymorphicCachedOptions<
-      InputSelectors,
-      Result,
-      KeyParams
-    >,
-  ) => OutputCachedSelector<InputSelectors, Result, KeyParams>;
+  ): CachedSelectorFactory<InputSelectors, Result>;
 
   <InputSelectors extends SelectorArray<StateType>, Result>(
     ...createSelectorArgs: [
@@ -191,29 +216,13 @@ export interface CreateCachedSelectorImpl<StateType = any> {
       combiner: Combiner<InputSelectors, Result>,
       createSelectorOptions: CreateSelectorOptions,
     ]
-  ): <
-    KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>,
-  >(
-    polymorphicOptions: PolymorphicCachedOptions<
-      InputSelectors,
-      Result,
-      KeyParams
-    >,
-  ) => OutputCachedSelector<InputSelectors, Result, KeyParams>;
+  ): CachedSelectorFactory<InputSelectors, Result>;
 
   <InputSelectors extends SelectorArray<StateType>, Result>(
     inputSelectors: [...InputSelectors],
     combiner: Combiner<InputSelectors, Result>,
     createSelectorOptions?: CreateSelectorOptions,
-  ): <
-    KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>,
-  >(
-    polymorphicOptions: PolymorphicCachedOptions<
-      InputSelectors,
-      Result,
-      KeyParams
-    >,
-  ) => OutputCachedSelector<InputSelectors, Result, KeyParams>;
+  ): CachedSelectorFactory<InputSelectors, Result>;
 }
 
 /**
