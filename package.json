@@ -20,7 +20,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsdown",
+    "clean": "rimraf dist",
+    "build": "yarn clean && tsdown",
     "test": "vitest --config ./vitest.config.mts",
     "test:bundles": "yarn test:bundles:snapshot && yarn test:bundles:unit",
     "test:bundles:unit": "vitest run --config ./test-bundles/cjs.vitest.config.mts && vitest run --config ./test-bundles/es.vitest.config.mts && vitest run --config ./test-bundles/umd.vitest.config.mts",
@@ -63,6 +64,7 @@
     "@vitest/coverage-v8": "^4.1.10",
     "expect-type": "^1.4.0",
     "prettier": "^3.9.6",
+    "rimraf": "^6.1.3",
     "simple-git-hooks": "^2.13.1",
     "tsdown": "^0.22.14",
     "typescript": "^7.0.2",
