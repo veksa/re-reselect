@@ -27,18 +27,32 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - run: corepack enable
+
       - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc
+          cache: 'yarn'
 
-        # Ensure npm 11.5.1 or later is installed
-      - run: npm install -g npm@11
-      - run: npm ci --ignore-scripts
+      # `changeset publish` shells out to npm, and OIDC trusted publishing
+      # needs npm >= 11.5.1. The Node release pinned in .nvmrc currently bundles
+      # a newer npm, so no global install is needed — but assert it here instead
+      # of discovering it at publish time, in case .nvmrc is ever lowered.
+      - name: Assert npm supports trusted publishing
+        run: |
+          required=11.5.1
+          actual=$(npm --version)
+          if [ "$(printf '%s\n%s\n' "$required" "$actual" | sort -V | head -n1)" != "$required" ]; then
+            echo "npm $actual is too old for OIDC trusted publishing (need >= $required)" >&2
+            exit 1
+          fi
+
+      - run: yarn install --immutable --mode=skip-build
 
       - name: Create Release PR or Publish to npm
         uses: changesets/action@v1.9.0
         with:
-          publish: npm run release
+          publish: yarn release
           commit: 'chore: update version for release'
           title: 'chore: update version for release'
         env:

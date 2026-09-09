@@ -1,29 +1,41 @@
 {
-  "name": "re-reselect",
-  "version": "5.1.1",
+  "name": "@veksa/re-reselect",
+  "version": "5.1.7",
   "description": "Enhance Reselect selectors with deeper memoization and cache management",
   "main": "dist/cjs/index.js",
-  "module": "dist/es/index.js",
-  "jsnext:main": "dist/es/index.js",
-  "browser": "dist/umd/index.js",
-  "types": "dist/types/index.d.ts",
+  "module": "dist/es/index.legacy-esm.js",
+  "jsnext:main": "dist/es/index.legacy-esm.js",
+  "browser": "dist/umd/index.umd.js",
+  "types": "dist/es/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/es/index.d.ts",
+      "import": "./dist/es/index.mjs",
+      "default": "./dist/cjs/index.js"
+    }
+  },
   "sideEffects": false,
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "rimraf ./dist && rollup -c --bundleConfigAsCjs",
+    "clean": "rimraf dist",
+    "build": "yarn clean && tsdown",
     "test": "vitest --config ./vitest.config.mts",
-    "test:bundles": "npm run test:bundles:snapshot && npm run test:bundles:unit",
-    "test:bundles:unit": "vitest run --config ./test-bundles/cjs.vitest.config.mts && vitest run --config ./test-bundles/es.vitest.config.mts && vitest run --config ./test-bundles/umd.vitest.config.mts",
-    "test:bundles:snapshot": "vitest run --dir ./test-bundles --coverage.enabled false",
-    "prepare": "npx simple-git-hooks && npm run source:check && npm run test -- --run && npm run build && npm run test:bundles",
-    "release": "npm run prepare && npx changeset publish",
+    "test:bundles": "yarn test:bundles:snapshot && yarn test:bundles:unit && yarn test:bundles:runtime",
+    "test:bundles:unit": "vitest run --config ./test-bundles/cjs.vitest.config.mts && vitest run --config ./test-bundles/es.vitest.config.mts && vitest run --config ./test-bundles/umd.vitest.config.mts && vitest run --config ./test-bundles/legacy-esm.vitest.config.mts",
+    "test:bundles:snapshot": "vitest run bundles-snapshot.test.ts --dir ./test-bundles --coverage.enabled false",
+    "test:bundles:runtime": "vitest run umd-runtime.test.ts legacy-syntax.test.ts --dir ./test-bundles --coverage.enabled false",
+    "prepare": "npx simple-git-hooks",
+    "verify": "yarn source:check && yarn test --run && yarn build && yarn test:bundles",
+    "release": "yarn verify && npx changeset publish",
     "prettier:check": "prettier . --check",
-    "prettier:fix": "npm run prettier:check -- --write",
+    "prettier:fix": "yarn prettier:check --write",
     "type:check": "tsc --noEmit",
-    "source:check": "npm run prettier:check && npm run type:check",
-    "source:fix": "npm run prettier:fix"
+    "source:check": "yarn prettier:check && yarn type:check",
+    "source:fix": "yarn prettier:fix",
+    "bench": "yarn build && node --expose-gc bench/run.mjs"
   },
   "keywords": [
     "react",
@@ -42,26 +54,25 @@
   "author": "Andrea Carraro <me@andreacarraro.it>",
   "license": "MIT",
   "peerDependencies": {
-    "reselect": "^5.0.0"
+    "@veksa/reselect": "^5.2.2"
   },
   "devDependencies": {
-    "@babel/preset-env": "^7.24.6",
     "@changesets/changelog-github": "^0.7.0",
-    "@changesets/cli": "^2.29.7",
-    "@rollup/plugin-babel": "^7.1.0",
-    "@trivago/prettier-plugin-sort-imports": "^6.0.0",
-    "@vitest/coverage-v8": "^4.1.9",
-    "expect-type": "^1.2.2",
-    "prettier": "^3.2.5",
-    "reselect": "^5.1.0",
-    "rimraf": "^6.0.1",
-    "rollup": "^4.17.2",
-    "rollup-plugin-copy": "^3.5.0",
-    "simple-git-hooks": "^2.11.1",
+    "@changesets/cli": "^2.31.1",
+    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "@types/node": "^26.1.1",
+    "@veksa/reselect": "^5.2.2",
+    "@vitest/coverage-v8": "^4.1.10",
+    "expect-type": "^1.4.0",
+    "prettier": "^3.9.6",
+    "rimraf": "^6.1.3",
+    "simple-git-hooks": "^2.13.1",
+    "tsdown": "^0.22.14",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.10"
   },
   "simple-git-hooks": {
-    "pre-commit": "npm run prepare"
-  }
+    "pre-commit": "yarn verify"
+  },
+  "packageManager": "yarn@4.18.0"
 }

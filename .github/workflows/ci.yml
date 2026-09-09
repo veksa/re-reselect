@@ -21,12 +21,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
+      - run: corepack enable
+
       - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: '.nvmrc'
+          cache: 'yarn'
 
-      - run: npm ci --ignore-scripts
-      - run: npm run prepare
+      - run: yarn install --immutable --mode=skip-build
+      - run: yarn verify
 
       - uses: actions/upload-artifact@v7
         with:

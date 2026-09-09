@@ -1,22 +1,23 @@
-import { expectTypeOf } from 'expect-type';
 import {
   type CreateSelectorOptions,
+  createSelector,
   createSelectorCreator,
   lruMemoize,
   weakMapMemoize,
-} from 'reselect';
+} from '@veksa/reselect';
+import { expectTypeOf } from 'expect-type';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  type CreateCachedSelectorOptions,
   FlatObjectCache,
   type ICacheObject,
   type KeySelector,
   createCachedSelector,
 } from '../src/index';
-import * as reselect from '../src/reselectWrapper';
+import { trackSelectorCreator } from './test-utils/trackSelectorCreator';
 
 beforeEach(() => {
-  vi.spyOn(reselect, 'createSelector');
   vi.spyOn(global.console, 'warn').mockImplementation(() => {});
 });
 
@@ -37,6 +38,8 @@ describe('createCachedSelector', () => {
           ],
         };
 
+        const selectorCreator = trackSelectorCreator();
+
         const selector = createCachedSelector(
           [(state: State) => state.todos, (state: State, user: string) => user],
           (todos, user) => {
@@ -45,6 +48,7 @@ describe('createCachedSelector', () => {
               .filter((todo) => todo.user === user);
           },
         )({
+          selectorCreator,
           keySelector: (state, user) => {
             expectTypeOf(state).toEqualTypeOf<State>();
             expectTypeOf(user).toEqualTypeOf<string>();
@@ -53,9 +57,7 @@ describe('createCachedSelector', () => {
           },
         });
 
-        expectTypeOf(selector).parameters.toEqualTypeOf<
-          [State, string, ...args: any[]]
-        >();
+        expectTypeOf(selector).parameters.toEqualTypeOf<[State, string]>();
 
         // Selector return expectations
         {
@@ -80,7 +82,7 @@ describe('createCachedSelector', () => {
           expect(actual).toEqual([{ id: 3, completed: true, user: 'tom' }]);
         }
 
-        expect(reselect.createSelector).toHaveBeenCalledTimes(2);
+        expect(selectorCreator).toHaveBeenCalledTimes(2);
         expect(selector.recomputations()).toBe(2);
       });
     });
@@ -100,6 +102,8 @@ describe('createCachedSelector', () => {
           ],
         };
 
+        const selectorCreator = trackSelectorCreator();
+
         const selector = createCachedSelector(
           (state: State) => state.todos,
           (state: State, user: string) => user,
@@ -109,6 +113,7 @@ describe('createCachedSelector', () => {
               .filter((todo) => todo.user === user);
           },
         )({
+          selectorCreator,
           keySelector: (state, user) => {
             expectTypeOf(state).toEqualTypeOf<State>();
             expectTypeOf(user).toEqualTypeOf<string>();
@@ -117,9 +122,7 @@ describe('createCachedSelector', () => {
           },
         });
 
-        expectTypeOf(selector).parameters.toEqualTypeOf<
-          [State, string, ...args: any[]]
-        >();
+        expectTypeOf(selector).parameters.toEqualTypeOf<[State, string]>();
 
         // Selector return expectations
         {
@@ -144,38 +147,176 @@ describe('createCachedSelector', () => {
           expect(actual).toEqual([{ id: 3, completed: true, user: 'tom' }]);
         }
 
-        expect(reselect.createSelector).toHaveBeenCalledTimes(2);
+        expect(selectorCreator).toHaveBeenCalledTimes(2);
         expect(selector.recomputations()).toBe(2);
+      });
+    });
+
+    describe('key selector declaring arguments of its own', () => {
+      /**
+       * Choosing the cache instance is the key selector's job, and what it keys on
+       * need not be anything an input selector reads: caching per `userId` while
+       * every input takes only the state is the ordinary shape of that. So the
+       * arguments of a cached selector are the arguments its inputs declare plus
+       * the ones its key declares, and the key is not confined to the former.
+       */
+      type State = { todos: { id: number; user: string }[] };
+
+      const state: State = {
+        todos: [
+          { id: 0, user: 'max' },
+          { id: 1, user: 'tom' },
+        ],
+      };
+
+      it('adds them to the selector arguments', () => {
+        const selectorCreator = trackSelectorCreator();
+
+        const selector = createCachedSelector(
+          [(state: State) => state.todos],
+          (todos) => todos,
+        )({
+          selectorCreator,
+          keySelector: (_state: State, user: string) => user,
+        });
+
+        expectTypeOf(selector).parameters.toEqualTypeOf<[State, string]>();
+
+        expect(selector(state, 'max')).toEqual(state.todos);
+        expect(selector(state, 'tom')).toEqual(state.todos);
+
+        // One instance per key, even though no input selector reads the key.
+        expect(selectorCreator).toHaveBeenCalledTimes(2);
+      });
+
+      it('accepts a key selector passed on its own', () => {
+        const selector = createCachedSelector(
+          [(state: State) => state.todos],
+          (todos) => todos,
+        )((_state: State, user: string) => user);
+
+        expectTypeOf(selector).parameters.toEqualTypeOf<[State, string]>();
+
+        expect(selector(state, 'max')).toEqual(state.todos);
+      });
+
+      it('keeps typing the key selector from the inputs when it declares nothing', () => {
+        const selector = createCachedSelector(
+          [
+            (state: State) => state.todos,
+            (_state: State, user: string) => user,
+          ],
+          (todos, user) => todos.filter((todo) => todo.user === user),
+        )({
+          keySelector: (state, user) => {
+            expectTypeOf(state).toEqualTypeOf<State>();
+            expectTypeOf(user).toEqualTypeOf<string>();
+
+            return user;
+          },
+        });
+
+        expectTypeOf(selector).parameters.toEqualTypeOf<[State, string]>();
+
+        expect(selector(state, 'max')).toEqual([{ id: 0, user: 'max' }]);
+      });
+
+      it('keeps them when there is no input selector at all', () => {
+        // With an empty input list reselect answers `never` for both the state
+        // and the parameters. The key's own argument has to survive next to
+        // that `never` instead of being dragged down with it, which is what
+        // merging the two argument lists position by position has to get right.
+        const selector = createCachedSelector(
+          [],
+          () => 'result',
+        )({
+          keySelector: (_state: State, user: string) => user,
+        });
+
+        expectTypeOf(selector).parameters.toEqualTypeOf<[never, string]>();
+      });
+    });
+
+    describe('call arity', () => {
+      /**
+       * The selector dispatches the one- and two-argument shapes directly and only
+       * falls back to `apply` beyond that, so each arity is a separate path through
+       * the same function. What every one of them must preserve is that the
+       * arguments reaching the keySelector and the memoized instance are exactly the
+       * arguments the caller passed — no padding with `undefined`, no truncation —
+       * because reselect memoizes on that list.
+       */
+      type State = { value: number };
+
+      const state: State = { value: 1 };
+
+      it('forwards a single argument without padding it', () => {
+        const keySelector = vi.fn((_state: State) => 'key');
+        const inputSelector = vi.fn((_state: State) => 'value');
+
+        const selector = createCachedSelector(
+          inputSelector,
+          (value) => value,
+        )(keySelector);
+
+        expect(selector(state)).toBe('value');
+
+        // `toHaveBeenCalledWith` is exact on arity, which is the assertion that
+        // matters here: a second `undefined` would be a different argument list.
+        expect(keySelector).toHaveBeenCalledWith(state);
+        expect(inputSelector).toHaveBeenCalledWith(state);
+      });
+
+      it('forwards arguments beyond the second', () => {
+        const keySelector = vi.fn(
+          (_state: State, first: string, second: string) => first + second,
+        );
+        const inputSelector = vi.fn(
+          (_state: State, first: string, second: string) => first + second,
+        );
+
+        const selector = createCachedSelector(
+          inputSelector,
+          (joined) => joined,
+        )(keySelector);
+
+        expect(selector(state, 'a', 'b')).toBe('ab');
+        expect(keySelector).toHaveBeenCalledWith(state, 'a', 'b');
+        expect(inputSelector).toHaveBeenCalledWith(state, 'a', 'b');
       });
     });
 
     describe('cache retention', () => {
       describe('calls producing identical cacheKey', () => {
         it('creates and use the same cached selector', () => {
+          const selectorCreator = trackSelectorCreator();
+
           const cachedSelector = createCachedSelector(
             [(state: string, param1: string) => null],
             () => 'result',
-          )({ keySelector: (state, param1) => param1 });
+          )({ selectorCreator, keySelector: (state, param1) => param1 });
           cachedSelector('foo', 'bar');
           cachedSelector('foo', 'bar');
 
-          expect(reselect.createSelector).toHaveBeenCalledTimes(1);
+          expect(selectorCreator).toHaveBeenCalledTimes(1);
           expect(cachedSelector.recomputations()).toBe(1);
         });
       });
 
       describe('calls producing 2 different cacheKey', () => {
         it('creates 2 selectors only and produce 2 recomputations', () => {
+          const selectorCreator = trackSelectorCreator();
+
           const cachedSelector = createCachedSelector(
             [(state: string, param1: string) => null],
             () => {},
-          )({ keySelector: (state, param1) => param1 });
+          )({ selectorCreator, keySelector: (state, param1) => param1 });
           cachedSelector('foo', 'bar');
           cachedSelector('foo', 'moo');
           cachedSelector('foo', 'bar');
           cachedSelector('foo', 'moo');
 
-          expect(reselect.createSelector).toHaveBeenCalledTimes(2);
+          expect(selectorCreator).toHaveBeenCalledTimes(2);
           expect(cachedSelector.recomputations()).toBe(2);
         });
       });
@@ -184,7 +325,7 @@ describe('createCachedSelector', () => {
     describe('cacheKey validation', () => {
       describe('cacheObject.isValidCacheKey', () => {
         describe("doesn't exist", () => {
-          it('accepts any value', () => {
+          it('selector accepts any value', () => {
             const cacheObjectMock: ICacheObject = {
               get: vi.fn(() => () => 'foo'),
               set: () => {},
@@ -194,7 +335,7 @@ describe('createCachedSelector', () => {
             const values = [{}, [], null, undefined, 12, 'bar'];
 
             const cachedSelector = createCachedSelector(
-              () => {},
+              (state: any) => {},
               () => {},
             )({
               keySelector: (state) => state,
@@ -216,14 +357,14 @@ describe('createCachedSelector', () => {
             cacheObjectMock.get = vi.fn();
 
             const cachedSelector = createCachedSelector(
-              () => {},
+              (state: string, param1: string) => {},
               () => {},
             )({
               keySelector: (state) => state,
               cacheObject: cacheObjectMock,
             });
 
-            cachedSelector('foo');
+            cachedSelector('foo', '');
 
             expect(cacheObjectMock.get).toHaveBeenCalledTimes(1);
             expect(cacheObjectMock.get).toHaveBeenCalledWith('foo');
@@ -237,20 +378,57 @@ describe('createCachedSelector', () => {
             cacheObjectMock.get = vi.fn();
 
             const cachedSelector = createCachedSelector(
-              () => {},
+              (state: string, param1: string) => {},
               () => {},
             )({
               keySelector: (state) => state,
               cacheObject: cacheObjectMock,
             });
 
-            const actual = cachedSelector('foo');
+            const actual = cachedSelector('foo', 'param1');
 
             expect(actual).toBe(undefined);
             expect(cacheObjectMock.get).not.toHaveBeenCalled();
             expect(console.warn).toHaveBeenCalledTimes(1);
             expect(console.warn).toHaveBeenCalledWith(
               '[re-reselect] Invalid cache key "foo" has been returned by keySelector function.',
+            );
+          });
+        });
+
+        describe('reads `this`', () => {
+          it('is invoked as a method on the cache object', () => {
+            /**
+             * A cache whose notion of a valid key depends on its own state — a
+             * tree-shaped cache consulting its root, for instance — can only answer
+             * if it is called as a method. Detaching the validator into a local and
+             * calling it bare leaves `this` undefined and throws on the first
+             * lookup, which makes the whole cache unusable rather than merely slow.
+             */
+            class SelfReferencingCache extends FlatObjectCache {
+              public accepted = ['foo'];
+
+              public override isValidCacheKey(cacheKey: unknown) {
+                return this.accepted.includes(cacheKey as string);
+              }
+            }
+
+            const cacheObject = new SelfReferencingCache();
+
+            const cachedSelector = createCachedSelector(
+              (state: string) => state,
+              (state) => state,
+            )({
+              keySelector: (state) => state,
+              cacheObject,
+            });
+
+            expect(() => cachedSelector('foo')).not.toThrow();
+            expect(cachedSelector('foo')).toBe('foo');
+
+            expect(cachedSelector('bar')).toBe(undefined);
+            expect(console.warn).toHaveBeenCalledWith(
+              '[re-reselect] Invalid cache key "bar" has been returned by keySelector function.',
             );
           });
         });
@@ -350,7 +528,7 @@ describe('createCachedSelector', () => {
           expect(cachedSelector.recomputations()).toBe(0);
 
           expectTypeOf(cachedSelector.recomputations()).toBeNumber();
-          expectTypeOf(cachedSelector.resetRecomputations()).toBeNumber();
+          expectTypeOf(cachedSelector.resetRecomputations()).toBeVoid();
         });
       });
 
@@ -385,7 +563,7 @@ describe('createCachedSelector', () => {
             (state: State) => state.a,
             resultFunc,
           )({
-            keySelector: (state, param1) => param1,
+            keySelector: (state) => state,
           });
 
           expect(cachedSelector.resultFunc).toBe(resultFunc);
@@ -423,6 +601,45 @@ describe('createCachedSelector', () => {
           >();
         });
       });
+
+      describe('reselect-only OutputSelector members', () => {
+        it('does not advertise members absent from the cached selector at runtime', () => {
+          type State = { a: string };
+          const cachedSelector = createCachedSelector(
+            (state: State) => state.a,
+            (a) => a,
+          )((state) => state.a);
+
+          // These members live only on the *inner*, per-cache-key reselect
+          // selectors — never on the cached selector returned here. They must
+          // not be typed as present, otherwise consumers would type-check and
+          // then crash at runtime (`... is not a function` / `undefined`).
+          expectTypeOf(cachedSelector).not.toHaveProperty('lastResult');
+          expectTypeOf(cachedSelector).not.toHaveProperty('memoizedResultFunc');
+          expectTypeOf(cachedSelector).not.toHaveProperty(
+            'dependencyRecomputations',
+          );
+          expectTypeOf(cachedSelector).not.toHaveProperty(
+            'resetDependencyRecomputations',
+          );
+          expectTypeOf(cachedSelector).not.toHaveProperty('memoize');
+          expectTypeOf(cachedSelector).not.toHaveProperty('argsMemoize');
+
+          // Sanity: they really are absent at runtime.
+          expect('lastResult' in cachedSelector).toBe(false);
+          expect('memoizedResultFunc' in cachedSelector).toBe(false);
+          expect('dependencyRecomputations' in cachedSelector).toBe(false);
+          expect('memoize' in cachedSelector).toBe(false);
+          expect('argsMemoize' in cachedSelector).toBe(false);
+
+          // ...whereas `getMatchingSelector` returns a genuine reselect
+          // selector, which *does* carry those members (type-level only —
+          // no matching selector exists in the cache here).
+          type Inner = ReturnType<typeof cachedSelector.getMatchingSelector>;
+          expectTypeOf<Inner>().toHaveProperty('lastResult');
+          expectTypeOf<Inner>().toHaveProperty('memoizedResultFunc');
+        });
+      });
     });
   });
 
@@ -439,6 +656,54 @@ describe('createCachedSelector', () => {
       });
     });
 
+    describe('missing keySelector', () => {
+      it('throws a descriptive error', () => {
+        const create = createCachedSelector(
+          () => {},
+          () => {},
+        );
+
+        expect(() => create({})).toThrow('[re-reselect] Missing "keySelector"');
+      });
+    });
+
+    describe('keySelector argument forwarding', () => {
+      it('forwards the exact multi-arg list to keySelector', () => {
+        const keySelectorMock = vi.fn((state: string, param: string) => param);
+        const cachedSelector = createCachedSelector(
+          (state: string, param: string) => param,
+          (param) => param,
+        )(keySelectorMock);
+
+        cachedSelector('foo', 'bar');
+
+        expect(keySelectorMock).toHaveBeenLastCalledWith('foo', 'bar');
+        expect(keySelectorMock.mock.calls[0]).toHaveLength(2);
+      });
+
+      it('forwards zero arguments as zero arguments (the D1 arity guarantee)', () => {
+        const keySelectorMock = vi.fn(() => 'key');
+        const cachedSelector = createCachedSelector(
+          () => {},
+          () => {},
+        )(keySelectorMock);
+
+        // Reselect selectors are typed to require `state`; the zero-arg call is
+        // deliberately outside that contract to exercise runtime arity. The old
+        // `[state, ...rest]` destructure injected an `undefined` here, so the
+        // keySelector saw `arguments.length === 1` instead of 0.
+        // @ts-expect-error -- intentional out-of-contract zero-arg call
+        cachedSelector();
+        // @ts-expect-error -- intentional out-of-contract zero-arg call
+        cachedSelector.getMatchingSelector();
+        // @ts-expect-error -- intentional out-of-contract zero-arg call
+        cachedSelector.removeMatchingSelector();
+
+        expect(keySelectorMock.mock.calls).toHaveLength(3);
+        expect(keySelectorMock.mock.calls).toEqual([[], [], []]);
+      });
+    });
+
     describe('as object', () => {
       it('accepts keySelector, cacheObject and selectorCreator options', () => {
         const cachedSelector = createCachedSelector(
@@ -447,7 +712,7 @@ describe('createCachedSelector', () => {
         )({
           keySelector: (state, param1) => param1,
           cacheObject: new FlatObjectCache(),
-          selectorCreator: reselect.createSelector,
+          selectorCreator: createSelector,
         });
 
         expect(cachedSelector.recomputations()).toBe(0);
@@ -525,6 +790,37 @@ describe('createCachedSelector', () => {
           expect(result).toEqual('bar');
           expectTypeOf(result).toBeString();
         });
+
+        it('does not mutate the caller options object', () => {
+          type State = { foo: string };
+          const inputSelector = (state: State, id: number) => state.foo;
+
+          const baseKeySelector = (state: State, id: number) => id;
+          // Frozen: the factory must clone before writing the
+          // `keySelectorCreator` result onto `options.keySelector`.
+          const options: CreateCachedSelectorOptions<
+            [typeof inputSelector],
+            string
+          > = Object.freeze({
+            keySelector: baseKeySelector,
+            keySelectorCreator:
+              ({ keySelector }) =>
+              (state: State, id: number) =>
+                `generated:${keySelector!(state, id)}`,
+          });
+
+          const selector = createCachedSelector(
+            inputSelector,
+            (foo: string) => foo,
+          );
+
+          expect(() => selector(options)).not.toThrow();
+          // The frozen options object is fully honoured: the created selector
+          // still wraps the base key via `keySelectorCreator`.
+          expect(selector(options).keySelector({ foo: 'bar' }, 7)).toBe(
+            'generated:7',
+          );
+        });
       });
     });
   });
@@ -535,22 +831,209 @@ describe('createCachedSelector', () => {
       memoizeOptions: { resultEqualityCheck: () => true },
     };
 
+    const selectorCreator = trackSelectorCreator();
+
     const cachedSelector = createCachedSelector(
       [inputSelector1],
       () => {},
       createSelectorOptions,
-    )({ keySelector: (state, param1) => param1 });
+    )({ selectorCreator, keySelector: (state, param1) => param1 });
 
     cachedSelector('foo', 'bar');
     cachedSelector('foo', 'bar');
 
-    expect(reselect.createSelector).toHaveBeenCalledTimes(1);
-    expect(reselect.createSelector).toHaveBeenCalledWith(
-      [inputSelector1],
-      expect.any(Function),
-      createSelectorOptions,
-    );
+    expect(selectorCreator).toHaveBeenCalledTimes(1);
+
+    const [inputSelectors, resultFunc, forwardedOptions] =
+      selectorCreator.mock.calls[0]!;
+
+    expect(inputSelectors).toEqual([inputSelector1]);
+    expect(resultFunc).toBeTypeOf('function');
+    // The caller's options are merged over the instance defaults rather than
+    // replacing them, so `argsMemoize` arrives alongside whatever was passed.
+    // It is matched by name: the CJS and UMD bundles require reselect's CJS
+    // build while this file imports its ESM one, so the two `lruMemoize`
+    // references are not the same object.
+    expect(forwardedOptions).toMatchObject(createSelectorOptions);
+    expect(forwardedOptions.argsMemoize.name).toBe(lruMemoize.name);
 
     expect(cachedSelector.recomputations()).toBe(1);
+  });
+
+  it('lets createSelectorOptions override the default argsMemoize', () => {
+    const inputSelector = (state: string, param1: string) => null;
+
+    const selectorCreator = trackSelectorCreator();
+
+    const cachedSelector = createCachedSelector([inputSelector], () => {}, {
+      argsMemoize: weakMapMemoize,
+    })({ selectorCreator, keySelector: (state, param1) => param1 });
+
+    cachedSelector('foo', 'bar');
+
+    expect(selectorCreator).toHaveBeenCalledWith(
+      [inputSelector],
+      expect.any(Function),
+      { argsMemoize: weakMapMemoize },
+    );
+  });
+
+  describe('withTypes', () => {
+    it('returns the same creator at runtime', () => {
+      // Act
+      const createTypedCachedSelector = createCachedSelector.withTypes<{
+        foo: string;
+      }>();
+
+      // Assert
+      expect(createTypedCachedSelector).toBe(createCachedSelector);
+    });
+
+    describe('pre-typed creator', () => {
+      it('pre-types input selectors with the provided state', () => {
+        // Arrange
+        type State = { foo: string };
+        const state: State = { foo: 'fizz' };
+
+        // Act
+        const selector = createCachedSelector.withTypes<State>()(
+          [
+            // `state` is inferred as `State`, no annotation needed
+            (state) => {
+              expectTypeOf(state).toEqualTypeOf<State>();
+              return state.foo;
+            },
+            (state) => {
+              expectTypeOf(state).toEqualTypeOf<State>();
+              return state.foo;
+            },
+          ],
+          (input1, input2) => {
+            expectTypeOf(input1).toBeString();
+            expectTypeOf(input2).toBeString();
+
+            return {
+              input1,
+              input2,
+            };
+          },
+        )((state) => {
+          expectTypeOf(state).toEqualTypeOf<State>();
+          return 'key';
+        });
+
+        // Assert
+        const actual = selector(state);
+        expect(actual).toEqual({
+          input1: 'fizz',
+          input2: 'fizz',
+        });
+        expectTypeOf(actual).toEqualTypeOf<{
+          input1: string;
+          input2: string;
+        }>();
+      });
+
+      it('rejects input selectors operating on a mismatched state', () => {
+        // Arrange
+        type State = { foo: string };
+
+        // Act / Assert
+        createCachedSelector.withTypes<State>()(
+          // @ts-expect-error input selector `state` must match the pre-typed `State`
+          [(state: { bar: number }) => state.bar],
+          (bar: number) => bar,
+        )(() => 'key');
+      });
+
+      it('rejects the variadic form, which would infer `never` combiner args', () => {
+        // Arrange
+        type State = { foo: string };
+
+        // Act / Assert: reselect v5 cannot apply the contextual state and
+        // infer the input tuple out of a variadic rest at the same time, so
+        // the combiner arguments used to collapse to `never` while the call
+        // still type-checked. Only the array form is offered now, so this is
+        // a "no overload matches" error pointing at the working shape.
+        createCachedSelector.withTypes<State>()(
+          // @ts-expect-error pre-typed creators take input selectors as an array
+          (state: State) => state.foo,
+          (state: State) => state.foo,
+          (input1: string, input2: string) => ({ input1, input2 }),
+        );
+      });
+
+      it('keeps per-selector params inferable alongside the pre-typed state', () => {
+        // Arrange: a typical app store shape, pre-typed once.
+        type State = { todos: Record<string, string> };
+        const createAppCachedSelector = createCachedSelector.withTypes<State>();
+        const state: State = { todos: { a: 'buy milk', b: 'walk dog' } };
+
+        // Act: `state` is inferred everywhere, the `id` param stays inferred.
+        const selectTodoById = createAppCachedSelector(
+          [
+            (state) => {
+              expectTypeOf(state).toEqualTypeOf<State>();
+              return state.todos;
+            },
+            (state, id: string) => {
+              expectTypeOf(state).toEqualTypeOf<State>();
+              return id;
+            },
+          ],
+          (todos, id) => todos[id],
+        )((state, id) => {
+          expectTypeOf(state).toEqualTypeOf<State>();
+          expectTypeOf(id).toBeString();
+          return id;
+        });
+
+        // Assert: runtime + selector signature.
+        expectTypeOf(selectTodoById).parameters.toEqualTypeOf<
+          [State, string]
+        >();
+        expect(selectTodoById(state, 'a')).toBe('buy milk');
+        expect(selectTodoById(state, 'b')).toBe('walk dog');
+      });
+
+      it('narrows the state further on a chained withTypes call', () => {
+        // Arrange: a base store type refined for a feature slice.
+        type RootState = { user: { name: string } };
+        type FeatureState = RootState & { feature: { count: number } };
+
+        // Act / Assert: the returned creator still exposes `withTypes`, and the
+        // override type must extend the previously pre-typed state.
+        const createFeatureCachedSelector = createCachedSelector
+          .withTypes<RootState>()
+          .withTypes<FeatureState>();
+
+        const selectCount = createFeatureCachedSelector(
+          [
+            (state) => {
+              expectTypeOf(state).toEqualTypeOf<FeatureState>();
+              return state.feature.count;
+            },
+          ],
+          (count) => count,
+        )((state) => state.user.name);
+
+        const state: FeatureState = {
+          user: { name: 'max' },
+          feature: { count: 7 },
+        };
+        expect(selectCount(state)).toBe(7);
+      });
+
+      it('rejects a chained withTypes that does not extend the current state', () => {
+        // Arrange
+        type State = { foo: string };
+
+        // Act / Assert
+        createCachedSelector
+          .withTypes<State>()
+          // @ts-expect-error `{ bar: number }` does not extend the pre-typed `State`
+          .withTypes<{ bar: number }>();
+      });
+    });
   });
 });
