@@ -53,6 +53,7 @@ import type { OutputSelector, Selector } from 'reselect';
 The package now ships a standard `exports` map with separate `import` (ESM) and `require` (CJS) conditions, each pointing at its own type declarations. Consequences:
 
 - **Deep imports into `dist` are no longer resolvable.** Only the package root (`re-reselect`) and `re-reselect/package.json` are exposed. Import from the package root instead of paths like `re-reselect/dist/...`.
+- **The UMD build moved to `dist/umd/index.umd.js`** (was `dist/umd/index.js`), and the `browser` field points at the new path. Direct CDN links that hard-code the old path (`unpkg.com/re-reselect/dist/umd/index.js`, jsDelivr, a `<script src>` copied from older docs) will 404 and must be updated.
 - **The ESM build is now `dist/es/index.mjs`** (was `dist/es/index.js`), so native Node ESM loads it as a real ES module. The `module` field now points at it.
 - **Type declarations moved.** The `import` condition resolves to `dist/es/index.d.mts` and the `require` condition to `dist/cjs/index.d.ts`; the top-level `types` field points at the latter. Consumers resolving types through the package name are unaffected.
 
