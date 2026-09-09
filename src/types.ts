@@ -19,13 +19,49 @@ import type { HasMixedAnyState, IsAny } from './typeUtils';
 export type KeySelector<S> = (state: S, ...args: any[]) => any;
 
 /**
- * keySelector type with parameters inferred from the parent selector's input selectors.
- * Used to give precise types to the user-supplied keySelector callback at call sites.
+ * The `keySelector` shape offered at call sites.
+ *
+ * The params tuple is **open-ended**: it starts with the params the input
+ * selectors declare (so `(state, id) => id` still gets `id` typed) and then
+ * accepts further arguments the input selectors know nothing about. That extra
+ * tail is re-reselect's signature pattern — a cache dimension that exists only
+ * to pick a cacheKey, as in `(state, props) => props.itemId` over input
+ * selectors that read `state` alone. Closing the tuple here would reject it.
  */
 export type TypedKeySelector<InputSelectors extends SelectorArray> = (
   state: GetStateFromSelectors<InputSelectors>,
-  ...params: GetParamsFromSelectors<InputSelectors>
+  ...params: [...GetParamsFromSelectors<InputSelectors>, ...any[]]
 ) => unknown;
+
+/**
+ * A `keySelector` that declares exactly the input selectors' params, i.e. adds
+ * no cache dimension of its own. Used as the default when the concrete
+ * keySelector type is unknown (a `keySelectorCreator`, or a hand-written
+ * `OutputCachedSelector<Inputs, Result>`), so merging it back in is a no-op.
+ */
+export type DefaultKeySelector<InputSelectors extends SelectorArray> = Selector<
+  GetStateFromSelectors<InputSelectors>,
+  unknown,
+  GetParamsFromSelectors<InputSelectors>
+>;
+
+/**
+ * The arguments the finished selector accepts: the input selectors' params
+ * merged with any extra params the `keySelector` declares.
+ *
+ * Appending the keySelector to the selector array and reusing reselect's own
+ * `GetParamsFromSelectors` keeps one merge implementation instead of a
+ * hand-rolled one — reselect takes the longest params tuple and intersects it
+ * element-wise, which is exactly the desired semantics: the caller has to
+ * satisfy the input selectors *and* the keySelector, since both receive the
+ * same arguments at runtime.
+ */
+export type CachedSelectorParams<
+  InputSelectors extends SelectorArray,
+  KeySelectorFn,
+> = KeySelectorFn extends (...args: any[]) => any
+  ? GetParamsFromSelectors<[...InputSelectors, KeySelectorFn]>
+  : GetParamsFromSelectors<InputSelectors>;
 
 /**
  * A function which receives the selector's inputSelectors/resultFunc/keySelector
@@ -43,8 +79,9 @@ export type KeySelectorCreator<
 export type CreateCachedSelectorOptions<
   InputSelectors extends SelectorArray,
   Result,
+  KeySelectorFn = DefaultKeySelector<InputSelectors>,
 > = {
-  keySelector?: TypedKeySelector<InputSelectors>;
+  keySelector?: KeySelectorFn;
   cacheObject?: ICacheObject;
   selectorCreator?: CreateSelectorFunction<any, any, any>;
   keySelectorCreator?: KeySelectorCreator<InputSelectors, Result>;
@@ -72,10 +109,11 @@ export type CreateCachedSelectorOptions<
 export type OutputCachedSelector<
   InputSelectors extends SelectorArray,
   Result,
+  KeySelectorFn = DefaultKeySelector<InputSelectors>,
 > = Selector<
   GetStateFromSelectors<InputSelectors>,
   Result,
-  GetParamsFromSelectors<InputSelectors>
+  CachedSelectorParams<InputSelectors, KeySelectorFn>
 > &
   // Re-use reselect's own field types, but `Pick` only the ones re-reselect
   // actually attaches at runtime. The call signature is supplied by the
@@ -84,11 +122,16 @@ export type OutputCachedSelector<
     OutputSelector<InputSelectors, Result>,
     'resultFunc' | 'dependencies' | 'recomputations' | 'resetRecomputations'
   > & {
+    // These take the *selector's* arguments, not the input selectors' — they
+    // run the keySelector to find the cache entry, so an extra dimension
+    // declared only by the keySelector has to be passed here too.
     getMatchingSelector: (
-      ...args: Parameters<OutputSelector<InputSelectors, Result>>
+      state: GetStateFromSelectors<InputSelectors>,
+      ...params: CachedSelectorParams<InputSelectors, KeySelectorFn>
     ) => OutputSelector<InputSelectors, Result>;
     removeMatchingSelector: (
-      ...args: Parameters<OutputSelector<InputSelectors, Result>>
+      state: GetStateFromSelectors<InputSelectors>,
+      ...params: CachedSelectorParams<InputSelectors, KeySelectorFn>
     ) => void;
     clearCache: () => void;
     cache: ICacheObject;
@@ -101,9 +144,10 @@ export type OutputCachedSelector<
 export type PolymorphicCachedOptions<
   InputSelectors extends SelectorArray,
   Result,
+  KeySelectorFn = DefaultKeySelector<InputSelectors>,
 > =
-  | TypedKeySelector<InputSelectors>
-  | CreateCachedSelectorOptions<InputSelectors, Result>;
+  | KeySelectorFn
+  | CreateCachedSelectorOptions<InputSelectors, Result, KeySelectorFn>;
 
 /**
  * Message surfaced when input selectors mix a concrete `state` with an
@@ -117,6 +161,10 @@ export type ImplicitAnyStateError =
 /**
  * The curried second call of `createCachedSelector(...)`.
  *
+ * Generic over the supplied `keySelector` so a cache dimension declared only
+ * there — re-reselect's signature pattern — flows into the finished selector's
+ * own call signature (see {@link CachedSelectorParams}).
+ *
  * Degrades to a single-parameter function typed with {@link ImplicitAnyStateError}
  * when {@link HasMixedAnyState} holds, turning what used to be a silent `any`
  * into a compile error that names the fix.
@@ -127,9 +175,19 @@ export type CachedSelectorFactory<
 > =
   HasMixedAnyState<InputSelectors> extends true
     ? (error: ImplicitAnyStateError) => never
-    : (
-        polymorphicOptions: PolymorphicCachedOptions<InputSelectors, Result>,
-      ) => OutputCachedSelector<InputSelectors, Result>;
+    : {
+        <KeySelectorFn extends TypedKeySelector<InputSelectors>>(
+          keySelector: KeySelectorFn,
+        ): OutputCachedSelector<InputSelectors, Result, KeySelectorFn>;
+
+        <KeySelectorFn extends TypedKeySelector<InputSelectors>>(
+          options: CreateCachedSelectorOptions<
+            InputSelectors,
+            Result,
+            KeySelectorFn
+          >,
+        ): OutputCachedSelector<InputSelectors, Result, KeySelectorFn>;
+      };
 
 /**
  * Input selectors spread as individual arguments.

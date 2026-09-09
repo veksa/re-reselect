@@ -13,8 +13,10 @@ export { LruMapCache } from './cache/LruMapCache';
 export type { ICacheObject } from './cache/types';
 export type {
   CachedSelectorFactory,
+  CachedSelectorParams,
   CreateCachedSelector,
   CreateCachedSelectorOptions,
+  DefaultKeySelector,
   ImplicitAnyStateError,
   KeySelector,
   KeySelectorCreator,
