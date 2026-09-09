@@ -36,6 +36,7 @@ The stricter, inferred type layer introduces the following type-level breaking c
       keySelector?.(state, id) ?? id;
   ```
 
+- **A `withTypes<State>()` creator now rejects the variadic form of input selectors**, accepting only the array form. reselect v5 cannot apply the contextual state and infer the input tuple out of a variadic rest at the same time, so `createCachedSelector.withTypes<State>()(fn, fn, combiner)` type-checked while silently collapsing the combiner arguments to `never`. That is now "No overload matches this call", pointing at the array form that does work. Plain `createCachedSelector` (no `withTypes`) still accepts both forms.
 - `createStructuredCachedSelector` with a very large selectors object (roughly 50+ keys) may fail to type-check with `TS2589` "Type instantiation is excessively deep". This is inherited from reselect v5's own `createStructuredSelector`, which uses the same object-to-tuple type derivation; the previous hand-written `.d.ts` avoided it via non-recursive mapped types. Runtime behavior is unchanged. Workaround: split into smaller structured selectors, or compose plain `createCachedSelector` calls.
 
 ### Removed and changed type exports
