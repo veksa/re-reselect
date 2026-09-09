@@ -1,9 +1,9 @@
-import { createSelector } from '@veksa/reselect';
 import { expectTypeOf } from 'expect-type';
+import { createSelector } from '@veksa/reselect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createCachedSelector } from '../src/index';
-import type { ImplicitAnyStateError } from '../src/types';
+import type { ImplicitAnyStateError, TypedKeySelector } from '../src/types';
 
 beforeEach(() => {
   vi.spyOn(global.console, 'warn').mockImplementation(() => {});
@@ -109,6 +109,159 @@ describe('createCachedSelector use cases', () => {
           input2: any;
         }>();
       });
+    });
+  });
+
+  // re-reselect's signature pattern: the cache dimension exists only to pick a
+  // cacheKey, so no input selector declares it. reselect's own
+  // `GetParamsFromSelectors` looks at input selectors alone, so a naive port
+  // rejects the keySelector, the call, and both cache-inspection methods.
+  // Appending the keySelector to the merged selector array restores all four.
+  describe('cache dimension declared only by the keySelector', () => {
+    type State = { items: Record<string, number>; total: number };
+    type Props = { itemId: string };
+
+    const state: State = { items: { a: 1, b: 2 }, total: 42 };
+    const props: Props = { itemId: 'a' };
+
+    it('accepts the keySelector and threads its params into the selector', () => {
+      // Arrange: input selectors read `state` only; `props` is the dimension.
+      const selector = createCachedSelector(
+        (state: State) => state.items,
+        (state: State) => state.total,
+        (items, total) => total,
+      )((state: State, props: Props) => props.itemId);
+
+      // Assert: the extra param shows up in the public call signature
+      expectTypeOf(selector).parameters.toEqualTypeOf<[State, Props]>();
+
+      // ...and in both cache-inspection methods
+      expectTypeOf(selector.getMatchingSelector).parameters.toEqualTypeOf<
+        [State, Props]
+      >();
+      expectTypeOf(selector.removeMatchingSelector).parameters.toEqualTypeOf<
+        [State, Props]
+      >();
+
+      // Act / Assert: runtime keys on `props.itemId`
+      expect(selector(state, props)).toBe(42);
+      expect(selector.getMatchingSelector(state, props)).toBeTypeOf('function');
+      expect(selector.recomputations()).toBe(1);
+
+      selector(state, { itemId: 'b' });
+      expect(selector.recomputations()).toBe(2);
+
+      selector.removeMatchingSelector(state, props);
+      expect(selector.getMatchingSelector(state, props)).toBeUndefined();
+    });
+
+    it('works through the options object too', () => {
+      const selector = createCachedSelector(
+        (state: State) => state.total,
+        (total) => total,
+      )({ keySelector: (state: State, props: Props) => props.itemId });
+
+      expectTypeOf(selector).parameters.toEqualTypeOf<[State, Props]>();
+      expect(selector(state, props)).toBe(42);
+    });
+
+    it('still rejects arguments no input selector or keySelector declares', () => {
+      const selector = createCachedSelector(
+        (state: State) => state.total,
+        (total) => total,
+      )((state: State) => 'key');
+
+      expectTypeOf(selector).parameters.toEqualTypeOf<[State]>();
+
+      // @ts-expect-error nothing declares a second argument
+      selector(state, props);
+    });
+
+    it('keeps params declared by an input selector precisely typed', () => {
+      const selector = createCachedSelector(
+        (state: State) => state.items,
+        (state: State, id: string) => id,
+        (items, id) => items[id],
+      )((state, id) => {
+        // Contextually typed from the input selectors, not widened to `any`
+        expectTypeOf(id).toEqualTypeOf<string>();
+        return id;
+      });
+
+      expectTypeOf(selector).parameters.toEqualTypeOf<[State, string]>();
+      expect(selector(state, 'b')).toBe(2);
+
+      // @ts-expect-error the declared param is a string
+      selector(state, 123);
+    });
+
+    it('merges an extra dimension with params the input selectors declare', () => {
+      const selector = createCachedSelector(
+        (state: State) => state.items,
+        (state: State, id: string) => id,
+        (items, id) => items[id],
+      )((state, id, tenant: number) => `${id}-${tenant}`);
+
+      // `id` comes from an input selector, `tenant` only from the keySelector
+      expectTypeOf(selector).parameters.toEqualTypeOf<
+        [State, string, number]
+      >();
+      expect(selector(state, 'b', 7)).toBe(2);
+    });
+
+    it('rejects a keySelector contradicting an input selector param', () => {
+      createCachedSelector(
+        (state: State) => state.items,
+        (state: State, id: string) => id,
+        (items, id) => items[id],
+        // @ts-expect-error `id` is declared `string` by an input selector
+      )((state: State, id: number) => id);
+    });
+
+    it('keeps the exported `TypedKeySelector` closed to the input params', () => {
+      // The open `any` tail that lets a keySelector add a dimension lives on an
+      // internal constraint, never on this public type. Pinned so it cannot
+      // widen again unnoticed.
+      type Inputs = [
+        (state: State) => number,
+        (state: State, id: string) => string,
+      ];
+
+      expectTypeOf<TypedKeySelector<Inputs>>().parameters.toEqualTypeOf<
+        [State, string]
+      >();
+    });
+
+    it('types an unannotated extra param as `unknown`, not `any`', () => {
+      const selector = createCachedSelector(
+        (state: State) => state.total,
+        (total) => total,
+      )((state, tenant) => {
+        // Nothing declares `tenant`, so there is nothing to infer it from.
+        // `unknown` keeps its uses checked; `any` would wave them through.
+        expectTypeOf(tenant).toBeUnknown();
+
+        // @ts-expect-error `tenant` is `unknown` until narrowed
+        tenant.toFixed(0);
+
+        return String(tenant);
+      });
+
+      expectTypeOf(selector).parameters.toEqualTypeOf<[State, unknown]>();
+      expect(selector(state, 7)).toBe(42);
+    });
+
+    it('keeps the input params when only a keySelectorCreator is given', () => {
+      const selector = createCachedSelector(
+        (state: State) => state.items,
+        (state: State, id: string) => id,
+        (items, id) => items[id],
+      )({ keySelectorCreator: () => (state, id) => id });
+
+      // No keySelector to infer an extra dimension from, so the selector takes
+      // exactly what the input selectors declare — no open `unknown` tail.
+      expectTypeOf(selector).parameters.toEqualTypeOf<[State, string]>();
+      expect(selector(state, 'b')).toBe(2);
     });
   });
 
