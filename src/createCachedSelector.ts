@@ -72,10 +72,15 @@ const createCachedSelectorImpl = ((
   return (
     polymorphicOptions: PolymorphicCachedOptions<SelectorArray, unknown>,
   ) => {
+    // Copy the caller's options: below we may write the `keySelectorCreator`
+    // result back onto `options.keySelector`, and mutating the caller's object
+    // would leak that side effect (and double-wrap the keySelector if the same
+    // options object were reused across factory calls). This preserves the
+    // pre-TypeScript behaviour, which copied via `Object.assign({}, ...)`.
     const options: CreateCachedSelectorOptions<SelectorArray, unknown> =
       isFunction(polymorphicOptions)
         ? { keySelector: polymorphicOptions }
-        : polymorphicOptions;
+        : { ...polymorphicOptions };
 
     let recomputations = 0;
     const resultFuncWithRecomputations: UnknownFunction = (...args) => {
