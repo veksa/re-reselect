@@ -7,11 +7,12 @@ import { describe, expect, it } from 'vitest';
 // public type surface has no other guard) to catch unintended drift from a
 // tsdown or reselect upgrade. Regenerate intentionally with `vitest -u`.
 describe('published artifacts', () => {
-  it.each(['dist/umd/index.umd.js', 'dist/es/index.d.ts'])(
-    '%s is unchanged',
-    (artifactPath) => {
-      const contents = readFileSync(join(__dirname, '..', artifactPath), 'utf8');
-      expect(contents).toMatchSnapshot();
-    },
-  );
+  it.each([
+    'dist/umd/index.umd.js',
+    'dist/es/index.legacy-esm.js',
+    'dist/es/index.d.ts',
+  ])('%s is unchanged', (artifactPath) => {
+    const contents = readFileSync(join(__dirname, '..', artifactPath), 'utf8');
+    expect(contents).toMatchSnapshot();
+  });
 });
