@@ -19,16 +19,41 @@ import type { HasMixedAnyState, IsAny } from './typeUtils';
 export type KeySelector<S> = (state: S, ...args: any[]) => any;
 
 /**
- * The `keySelector` shape offered at call sites.
- *
- * The params tuple is **open-ended**: it starts with the params the input
- * selectors declare (so `(state, id) => id` still gets `id` typed) and then
- * accepts further arguments the input selectors know nothing about. That extra
- * tail is re-reselect's signature pattern — a cache dimension that exists only
- * to pick a cacheKey, as in `(state, props) => props.itemId` over input
- * selectors that read `state` alone. Closing the tuple here would reject it.
+ * keySelector type with parameters inferred from the parent selector's input
+ * selectors. Used to give precise types to the user-supplied keySelector
+ * callback at call sites.
  */
 export type TypedKeySelector<InputSelectors extends SelectorArray> = (
+  state: GetStateFromSelectors<InputSelectors>,
+  ...params: GetParamsFromSelectors<InputSelectors>
+) => unknown;
+
+/**
+ * The gate a supplied `keySelector` has to pass — deliberately open at the
+ * tail, unlike {@link TypedKeySelector}.
+ *
+ * A keySelector may declare params the input selectors know nothing about:
+ * that is how re-reselect expresses a cache dimension whose only job is to
+ * pick a cacheKey, as in `(state, props) => props.itemId` over input selectors
+ * that read `state` alone. A closed tuple rejects it ("Target signature
+ * provides too few arguments").
+ *
+ * The `any` tail is only ever a *constraint*. Nothing here reaches the
+ * finished selector's types: those come from `Parameters<KeySelectorFn>` of
+ * the concrete keySelector that was passed (see {@link CachedSelectorParams}),
+ * so the extra params stay exactly as the caller declared them. Leading params
+ * are still checked — a keySelector contradicting one an input selector
+ * declares is rejected.
+ *
+ * The tail does mean an *unannotated* extra param is contextually `any`, since
+ * there is nothing to infer it from. That is not flagged the way a mixed-`any`
+ * input selector list is (see {@link HasMixedAnyState}): the loose
+ * {@link KeySelector} shape is a documented escape hatch, so an `any` here can
+ * be deliberate. Annotate the param to get it checked.
+ *
+ * Not exported from the package root: callers never name it.
+ */
+type KeySelectorConstraint<InputSelectors extends SelectorArray> = (
   state: GetStateFromSelectors<InputSelectors>,
   ...params: [...GetParamsFromSelectors<InputSelectors>, ...any[]]
 ) => unknown;
@@ -176,11 +201,11 @@ export type CachedSelectorFactory<
   HasMixedAnyState<InputSelectors> extends true
     ? (error: ImplicitAnyStateError) => never
     : {
-        <KeySelectorFn extends TypedKeySelector<InputSelectors>>(
+        <KeySelectorFn extends KeySelectorConstraint<InputSelectors>>(
           keySelector: KeySelectorFn,
         ): OutputCachedSelector<InputSelectors, Result, KeySelectorFn>;
 
-        <KeySelectorFn extends TypedKeySelector<InputSelectors>>(
+        <KeySelectorFn extends KeySelectorConstraint<InputSelectors>>(
           options: CreateCachedSelectorOptions<
             InputSelectors,
             Result,

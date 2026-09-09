@@ -3,7 +3,7 @@ import { createSelector } from 'reselect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createCachedSelector } from '../src/index';
-import type { ImplicitAnyStateError } from '../src/types';
+import type { ImplicitAnyStateError, TypedKeySelector } from '../src/types';
 
 beforeEach(() => {
   vi.spyOn(global.console, 'warn').mockImplementation(() => {});
@@ -193,6 +193,43 @@ describe('createCachedSelector use cases', () => {
 
       // @ts-expect-error the declared param is a string
       selector(state, 123);
+    });
+
+    it('merges an extra dimension with params the input selectors declare', () => {
+      const selector = createCachedSelector(
+        (state: State) => state.items,
+        (state: State, id: string) => id,
+        (items, id) => items[id],
+      )((state, id, tenant: number) => `${id}-${tenant}`);
+
+      // `id` comes from an input selector, `tenant` only from the keySelector
+      expectTypeOf(selector).parameters.toEqualTypeOf<
+        [State, string, number]
+      >();
+      expect(selector(state, 'b', 7)).toBe(2);
+    });
+
+    it('rejects a keySelector contradicting an input selector param', () => {
+      createCachedSelector(
+        (state: State) => state.items,
+        (state: State, id: string) => id,
+        (items, id) => items[id],
+        // @ts-expect-error `id` is declared `string` by an input selector
+      )((state: State, id: number) => id);
+    });
+
+    it('keeps the exported `TypedKeySelector` closed to the input params', () => {
+      // The open `any` tail that lets a keySelector add a dimension lives on an
+      // internal constraint, never on this public type. Pinned so it cannot
+      // widen again unnoticed.
+      type Inputs = [
+        (state: State) => number,
+        (state: State, id: string) => string,
+      ];
+
+      expectTypeOf<TypedKeySelector<Inputs>>().parameters.toEqualTypeOf<
+        [State, string]
+      >();
     });
   });
 
