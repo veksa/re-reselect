@@ -161,31 +161,41 @@ type ImplicitAnyStateError = '[re-reselect] Some input selectors have an implici
  */
 type CachedSelectorFactory<InputSelectors extends SelectorArray, Result> = HasMixedAnyState<InputSelectors> extends true ? (error: ImplicitAnyStateError) => never : <KeyParams extends readonly any[] = GetParamsFromSelectors<InputSelectors>>(polymorphicOptions: PolymorphicCachedOptions<InputSelectors, Result, KeyParams>) => OutputCachedSelector<InputSelectors, Result, KeyParams>;
 /**
+ * Input selectors spread as individual arguments.
+ *
+ * Only available while \`StateType\` is still \`any\`. Once \`withTypes<State>()\`
+ * has pinned it, reselect's tuple inference cannot both apply the contextual
+ * state and infer the input tuple out of a variadic rest, and the combiner
+ * arguments collapse to \`never\` — the call type-checks and produces a useless
+ * selector. Dropping these signatures turns that into "No overload matches
+ * this call" and points at the array form, which does work.
+ */
+interface VariadicCachedSelectorSignatures<StateType> {
+  <InputSelectors extends SelectorArray<StateType>, Result>(...createSelectorArgs: [...inputSelectors: InputSelectors, combiner: Combiner<InputSelectors, Result>]): CachedSelectorFactory<InputSelectors, Result>;
+  <InputSelectors extends SelectorArray<StateType>, Result>(...createSelectorArgs: [...inputSelectors: InputSelectors, combiner: Combiner<InputSelectors, Result>, createSelectorOptions: CreateSelectorOptions]): CachedSelectorFactory<InputSelectors, Result>;
+}
+/** Input selectors passed as a single array argument. Always available. */
+interface ArrayCachedSelectorSignatures<StateType> {
+  <InputSelectors extends SelectorArray<StateType>, Result>(inputSelectors: [...InputSelectors], combiner: Combiner<InputSelectors, Result>, createSelectorOptions?: CreateSelectorOptions): CachedSelectorFactory<InputSelectors, Result>;
+}
+/**
  * Just the callable signatures of \`createCachedSelector\`, without \`withTypes\`.
  * Split out so the runtime implementation can be typed against it directly
  * (TypeScript's \`Omit\` strips call signatures, so this can't be derived from
  * \`CreateCachedSelector\` after the fact).
  *
- * Three overloads (variadic, variadic+options, array+options) using tuple
- * inference instead of per-arity overload duplication, mirroring reselect's
- * \`CreateSelectorFunction\` pattern.
+ * Tuple inference replaces the old per-arity overload duplication, mirroring
+ * reselect's \`CreateSelectorFunction\` pattern.
  *
  * \`StateType\` is the state type shared by all input selectors. It defaults to
  * \`any\` and is narrowed via \`withTypes\` to pre-type the selector creator.
- *
- * The curried call is generic in \`KeyParams\` so a keySelector that declares its
- * own arguments widens the resulting selector instead of being rejected.
  */
-interface CreateCachedSelectorImpl<StateType = any> {
-  <InputSelectors extends SelectorArray<StateType>, Result>(...createSelectorArgs: [...inputSelectors: InputSelectors, combiner: Combiner<InputSelectors, Result>]): CachedSelectorFactory<InputSelectors, Result>;
-  <InputSelectors extends SelectorArray<StateType>, Result>(...createSelectorArgs: [...inputSelectors: InputSelectors, combiner: Combiner<InputSelectors, Result>, createSelectorOptions: CreateSelectorOptions]): CachedSelectorFactory<InputSelectors, Result>;
-  <InputSelectors extends SelectorArray<StateType>, Result>(inputSelectors: [...InputSelectors], combiner: Combiner<InputSelectors, Result>, createSelectorOptions?: CreateSelectorOptions): CachedSelectorFactory<InputSelectors, Result>;
-}
+type CreateCachedSelectorImpl<StateType = any> = (IsAny<StateType> extends true ? VariadicCachedSelectorSignatures<StateType> : unknown) & ArrayCachedSelectorSignatures<StateType>;
 /**
  * The full \`createCachedSelector\` surface: callable signatures plus the
  * \`withTypes\` helper for pre-typing the state.
  */
-interface CreateCachedSelector<StateType = any> extends CreateCachedSelectorImpl<StateType> {
+type CreateCachedSelector<StateType = any> = CreateCachedSelectorImpl<StateType> & {
   /**
    * Creates a "pre-typed" version of \`createCachedSelector\` where the \`state\`
    * type is predefined.
@@ -193,10 +203,12 @@ interface CreateCachedSelector<StateType = any> extends CreateCachedSelectorImpl
    * This lets you set the \`state\` type once, removing the need to specify it
    * on every input selector across all \`createCachedSelector\` calls.
    *
+   * Pre-typed creators accept the array form of input selectors only.
+   *
    * @returns A pre-typed \`createCachedSelector\` with the state type baked in.
    */
   withTypes: <OverrideStateType extends StateType>() => CreateCachedSelector<OverrideStateType>;
-}
+};
 //#endregion
 //#region src/createCachedSelector.d.ts
 declare const createCachedSelector: CreateCachedSelector;

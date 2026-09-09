@@ -946,6 +946,23 @@ describe('createCachedSelector', () => {
         )(() => 'key');
       });
 
+      it('rejects the variadic form, which would infer `never` combiner args', () => {
+        // Arrange
+        type State = { foo: string };
+
+        // Act / Assert: reselect v5 cannot apply the contextual state and
+        // infer the input tuple out of a variadic rest at the same time, so
+        // the combiner arguments used to collapse to `never` while the call
+        // still type-checked. Only the array form is offered now, so this is
+        // a "no overload matches" error pointing at the working shape.
+        createCachedSelector.withTypes<State>()(
+          // @ts-expect-error pre-typed creators take input selectors as an array
+          (state: State) => state.foo,
+          (state: State) => state.foo,
+          (input1: string, input2: string) => ({ input1, input2 }),
+        );
+      });
+
       it('keeps per-selector params inferable alongside the pre-typed state', () => {
         // Arrange: a typical app store shape, pre-typed once.
         type State = { todos: Record<string, string> };

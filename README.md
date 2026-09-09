@@ -362,7 +362,7 @@ const selectTodoById = createAppCachedSelector(
 )((state, id) => id); // `keySelector` `state` inferred too
 ```
 
-> **Pass input selectors as an array.** As with reselect's `createSelector.withTypes`, state inference only works when input selectors are given as a single array argument. The variadic form (input selectors spread as separate arguments) collapses the combiner arguments to `never`.
+> **Pass input selectors as an array.** As with reselect's `createSelector.withTypes`, state inference only works when input selectors are given as a single array argument. A pre-typed creator therefore only accepts the array form: the variadic form (input selectors spread as separate arguments) is a compile error, since reselect cannot apply the contextual state and infer the input tuple from a variadic rest at once — it would silently collapse the combiner arguments to `never`.
 
 Only the `state` type is pre-typed. `withTypes` is a **type-only** helper: at runtime it returns the same `createCachedSelector` unchanged. Calls can be chained to narrow the state further (the override type must extend the current one).
 
