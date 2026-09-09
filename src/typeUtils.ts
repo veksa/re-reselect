@@ -1,8 +1,4 @@
-import type {
-  Selector,
-  SelectorArray,
-  SelectorsObject,
-} from '@veksa/reselect';
+import type { Selector, SelectorArray, SelectorsObject } from '@veksa/reselect';
 
 /**
  * Distributes a union `A | B | C` into an intersection `A & B & C` by exploiting

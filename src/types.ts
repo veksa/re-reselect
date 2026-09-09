@@ -41,7 +41,6 @@ type InputParams<InputSelectors extends SelectorArray> = [
   ? []
   : GetParamsFromSelectors<InputSelectors>;
 
-
 /**
  * The params a supplied `keySelector` is allowed to declare: the ones the
  * input selectors declare, then anything further.
@@ -118,8 +117,7 @@ export type KeySelectorCreator<
 export type CreateCachedSelectorOptions<
   InputSelectors extends SelectorArray,
   Result,
-  KeySelectorParams extends readonly unknown[] =
-    InputParams<InputSelectors>,
+  KeySelectorParams extends readonly unknown[] = InputParams<InputSelectors>,
 > = {
   keySelector?: (
     state: GetStateFromSelectors<InputSelectors>,
@@ -156,8 +154,7 @@ export type CreateCachedSelectorOptions<
 export type OutputCachedSelector<
   InputSelectors extends SelectorArray,
   Result,
-  KeySelectorParams extends readonly unknown[] =
-    InputParams<InputSelectors>,
+  KeySelectorParams extends readonly unknown[] = InputParams<InputSelectors>,
 > = Selector<
   GetStateFromSelectors<InputSelectors>,
   Result,
@@ -192,8 +189,7 @@ export type OutputCachedSelector<
 export type PolymorphicCachedOptions<
   InputSelectors extends SelectorArray,
   Result,
-  KeySelectorParams extends readonly unknown[] =
-    InputParams<InputSelectors>,
+  KeySelectorParams extends readonly unknown[] = InputParams<InputSelectors>,
 > =
   | ((
       state: GetStateFromSelectors<InputSelectors>,
