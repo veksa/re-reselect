@@ -31,6 +31,19 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      # OIDC trusted publishing needs npm >= 11.5.1. The Node release pinned in
+      # .nvmrc currently bundles a newer npm, so no global npm install is
+      # needed — but assert it instead of discovering it at publish time if
+      # .nvmrc is ever lowered.
+      - name: Assert npm supports trusted publishing
+        run: |
+          required=11.5.1
+          actual=$(npm --version)
+          if [ "$(printf '%s\n%s\n' "$required" "$actual" | sort -V | head -n1)" != "$required" ]; then
+            echo "npm $actual is too old for OIDC trusted publishing (need >= $required)" >&2
+            exit 1
+          fi
+
       - run: npm ci --ignore-scripts
 
       - name: Create Release PR or Publish to npm
