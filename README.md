@@ -389,6 +389,20 @@ A custom function receiving the same arguments as your selectors (and `inputSele
 
 `cacheKey` is **by default a `string` or `number`** but can be anything depending on the chosen cache strategy (see [`cacheObject` option](#optionscacheobject)).
 
+A `keySelector` may declare **more** arguments than the input selectors do. That is how a cache dimension which only picks the `cacheKey` is expressed — the extra arguments become part of the resulting selector's own signature (and of `getMatchingSelector`/`removeMatchingSelector`), since every one of them receives the same arguments at runtime:
+
+<!-- prettier-ignore -->
+```ts
+const getTotalByItem = createCachedSelector(
+  (state: State) => state.total, // no input selector reads `props`
+  total => total,
+)(
+  (state: State, props: {itemId: string}) => props.itemId
+);
+
+getTotalByItem(state, {itemId: 'foo'}); // `props` is required, and typed
+```
+
 The `keySelector` idea comes from [Lodash's .memoize resolver][lodash-memoize].
 
 ### options
@@ -418,7 +432,8 @@ An optional function with the following signature returning the [`keySelector`](
 type keySelectorCreator = (selectorInputs: {
   inputSelectors: InputSelector[];
   resultFunc: ResultFunc;
-  keySelector: KeySelector;
+  // Absent unless a `keySelector` was also supplied
+  keySelector?: KeySelector;
 }) => KeySelector;
 ```
 
