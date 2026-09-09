@@ -22,6 +22,19 @@ The stricter, inferred type layer introduces the following type-level breaking c
 - The cached selector's parameters must match the union of all input selectors' parameters. Under-supplying arguments declared by an input selector is no longer accepted.
 - `resetRecomputations()` is now typed as `() => void` (aligned with reselect v5) instead of `() => number`.
 - The `keySelector` parameter list is now inferred from the input selectors (`(state, ...params)`) instead of the permissive `(state, ...args: any[])`. A `keySelector` that reads an extra argument not declared by any input selector no longer type-checks. This is the "cache dimension supplied via `keySelector` only" pattern. Express the dimension as a parametric input selector (`(state, id) => id`) so it flows into both the call signature and the `keySelector`. Runtime behavior is unchanged.
+- `keySelectorCreator` now receives `keySelector` as an **optional** property (`keySelector?: TypedKeySelector<InputSelectors>`), because it genuinely is absent when `keySelectorCreator` is used on its own. Existing creators that call it directly need a guard or a non-null assertion:
+
+  ```ts
+  // before
+  ({ keySelector }) =>
+    (state, id) =>
+      keySelector(state, id);
+  // after
+  ({ keySelector }) =>
+    (state, id) =>
+      keySelector?.(state, id) ?? id;
+  ```
+
 - `createStructuredCachedSelector` with a very large selectors object (roughly 50+ keys) may fail to type-check with `TS2589` "Type instantiation is excessively deep". This is inherited from reselect v5's own `createStructuredSelector`, which uses the same object-to-tuple type derivation; the previous hand-written `.d.ts` avoided it via non-recursive mapped types. Runtime behavior is unchanged. Workaround: split into smaller structured selectors, or compose plain `createCachedSelector` calls.
 
 ### Removed and changed type exports
