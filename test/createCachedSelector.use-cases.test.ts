@@ -1,5 +1,5 @@
-import { expectTypeOf } from 'expect-type';
 import { createSelector } from '@veksa/reselect';
+import { expectTypeOf } from 'expect-type';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createCachedSelector } from '../src/index';
