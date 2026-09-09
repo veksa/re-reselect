@@ -3,6 +3,7 @@ import { expectTypeOf } from 'expect-type';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createCachedSelector } from '../src/index';
+import type { ImplicitAnyStateError } from '../src/types';
 
 beforeEach(() => {
   vi.spyOn(global.console, 'warn').mockImplementation(() => {});
@@ -41,37 +42,44 @@ describe('createCachedSelector use cases', () => {
     });
   });
 
-  // Documents a known reselect v5 type-inference limitation that the previous
-  // hand-written `index.d.ts` (per-arity overloads) used to paper over: an
-  // inline input selector whose `state` is NOT annotated cannot be
-  // contextually typed while the input tuple is being inferred, so `state`
-  // collapses to `any` and that `any` propagates to the combiner and result.
-  // Runtime behavior is unaffected; only the static type degrades.
+  // reselect v5 cannot contextually type an inline input selector while it is
+  // still inferring the input tuple, so an unannotated `(state) => state.foo`
+  // next to an annotated one resolves to `any` and that `any` propagates into
+  // the combiner arguments and the result. The old hand-written per-arity
+  // `index.d.ts` typed those correctly, so the migration would silently drop
+  // type safety. `HasMixedAnyState` turns the mixed case into a compile error
+  // instead; the plain-reselect case below shows what it still does upstream.
   describe('unannotated inline input selectors', () => {
     describe('via createCachedSelector', () => {
-      it('degrades the inferred result type to `any`', () => {
+      it('is a compile error rather than a silent `any`', () => {
         type State = { foo: boolean };
 
-        // No annotation on `state` in one inline input selector.
-        const selector = createCachedSelector(
+        const factory = createCachedSelector(
+          // No annotation on `state` in the second inline input selector.
           [(state: State) => state.foo, (state) => state.foo],
-          (input1, input2) => {
-            expectTypeOf(input1).toBeBoolean();
-            // The inferred type has degraded to `any`
-            expectTypeOf(input2).toBeAny();
+          (input1, input2) => ({ input1, input2 }),
+        );
 
-            return { input1, input2 };
-          },
-        )((state: State) => String(state.foo));
+        // The factory degrades to a single-parameter function whose parameter
+        // type *is* the diagnostic, so passing a keySelector fails to compile.
+        expectTypeOf(factory).parameters.toEqualTypeOf<
+          [ImplicitAnyStateError]
+        >();
 
-        const actual = selector({ foo: true });
+        // @ts-expect-error mixed `any`/typed input selector states
+        factory((state: State) => String(state.foo));
 
-        expect(actual).toEqual({ input1: true, input2: true });
-        expectTypeOf(actual).toEqualTypeOf<{
-          input1: boolean;
-          // The inferred type has degraded to `any`
-          input2: any;
-        }>();
+        // Runtime is unaffected — only the static type was ever degraded.
+        const selector = (
+          factory as unknown as (
+            keySelector: (state: State) => string,
+          ) => (state: State) => { input1: boolean; input2: boolean }
+        )((state) => String(state.foo));
+
+        expect(selector({ foo: true })).toEqual({
+          input1: true,
+          input2: true,
+        });
       });
     });
 
