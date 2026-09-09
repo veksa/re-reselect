@@ -2,12 +2,12 @@ import {
   type Combiner,
   type CreateSelectorOptions,
   type SelectorArray,
+  createSelector,
   lruMemoize,
 } from '@veksa/reselect';
 
 import { FlatObjectCache } from './cache/FlatObjectCache';
 import type { ICacheObject } from './cache/types';
-import { createSelector } from './reselectWrapper';
 import type {
   CreateCachedSelector,
   CreateCachedSelectorImpl,

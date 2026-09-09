@@ -16,7 +16,7 @@ const tsconfig = './tsconfig.build.json';
 
 export default defineConfig([
   {
-    entry: ['src/index.ts', 'src/reselectWrapper.ts'],
+    entry: ['src/index.ts'],
     format: 'esm',
     outDir: 'dist/es',
     // `.mjs`, not `.js`: the package has no `"type": "module"`, so Node reads a
@@ -34,7 +34,7 @@ export default defineConfig([
     unbundle: false,
   },
   {
-    entry: ['src/index.ts', 'src/reselectWrapper.ts'],
+    entry: ['src/index.ts'],
     format: 'cjs',
     outDir: 'dist/cjs',
     outExtensions: () => ({ js: '.js' }),
