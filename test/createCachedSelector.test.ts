@@ -1,5 +1,6 @@
 import {
   type CreateSelectorOptions,
+  createSelector,
   createSelectorCreator,
   lruMemoize,
   weakMapMemoize,
@@ -14,10 +15,9 @@ import {
   type KeySelector,
   createCachedSelector,
 } from '../src/index';
-import * as reselect from '../src/reselectWrapper';
+import { trackSelectorCreator } from './test-utils/trackSelectorCreator';
 
 beforeEach(() => {
-  vi.spyOn(reselect, 'createSelector');
   vi.spyOn(global.console, 'warn').mockImplementation(() => {});
 });
 
@@ -38,6 +38,8 @@ describe('createCachedSelector', () => {
           ],
         };
 
+        const selectorCreator = trackSelectorCreator();
+
         const selector = createCachedSelector(
           [(state: State) => state.todos, (state: State, user: string) => user],
           (todos, user) => {
@@ -46,6 +48,7 @@ describe('createCachedSelector', () => {
               .filter((todo) => todo.user === user);
           },
         )({
+          selectorCreator,
           keySelector: (state, user) => {
             expectTypeOf(state).toEqualTypeOf<State>();
             expectTypeOf(user).toEqualTypeOf<string>();
@@ -79,7 +82,7 @@ describe('createCachedSelector', () => {
           expect(actual).toEqual([{ id: 3, completed: true, user: 'tom' }]);
         }
 
-        expect(reselect.createSelector).toHaveBeenCalledTimes(2);
+        expect(selectorCreator).toHaveBeenCalledTimes(2);
         expect(selector.recomputations()).toBe(2);
       });
     });
@@ -99,6 +102,8 @@ describe('createCachedSelector', () => {
           ],
         };
 
+        const selectorCreator = trackSelectorCreator();
+
         const selector = createCachedSelector(
           (state: State) => state.todos,
           (state: State, user: string) => user,
@@ -108,6 +113,7 @@ describe('createCachedSelector', () => {
               .filter((todo) => todo.user === user);
           },
         )({
+          selectorCreator,
           keySelector: (state, user) => {
             expectTypeOf(state).toEqualTypeOf<State>();
             expectTypeOf(user).toEqualTypeOf<string>();
@@ -141,7 +147,7 @@ describe('createCachedSelector', () => {
           expect(actual).toEqual([{ id: 3, completed: true, user: 'tom' }]);
         }
 
-        expect(reselect.createSelector).toHaveBeenCalledTimes(2);
+        expect(selectorCreator).toHaveBeenCalledTimes(2);
         expect(selector.recomputations()).toBe(2);
       });
     });
@@ -164,10 +170,13 @@ describe('createCachedSelector', () => {
       };
 
       it('adds them to the selector arguments', () => {
+        const selectorCreator = trackSelectorCreator();
+
         const selector = createCachedSelector(
           [(state: State) => state.todos],
           (todos) => todos,
         )({
+          selectorCreator,
           keySelector: (_state: State, user: string) => user,
         });
 
@@ -177,7 +186,7 @@ describe('createCachedSelector', () => {
         expect(selector(state, 'tom')).toEqual(state.todos);
 
         // One instance per key, even though no input selector reads the key.
-        expect(reselect.createSelector).toHaveBeenCalledTimes(2);
+        expect(selectorCreator).toHaveBeenCalledTimes(2);
       });
 
       it('accepts a key selector passed on its own', () => {
@@ -280,30 +289,34 @@ describe('createCachedSelector', () => {
     describe('cache retention', () => {
       describe('calls producing identical cacheKey', () => {
         it('creates and use the same cached selector', () => {
+          const selectorCreator = trackSelectorCreator();
+
           const cachedSelector = createCachedSelector(
             [(state: string, param1: string) => null],
             () => 'result',
-          )({ keySelector: (state, param1) => param1 });
+          )({ selectorCreator, keySelector: (state, param1) => param1 });
           cachedSelector('foo', 'bar');
           cachedSelector('foo', 'bar');
 
-          expect(reselect.createSelector).toHaveBeenCalledTimes(1);
+          expect(selectorCreator).toHaveBeenCalledTimes(1);
           expect(cachedSelector.recomputations()).toBe(1);
         });
       });
 
       describe('calls producing 2 different cacheKey', () => {
         it('creates 2 selectors only and produce 2 recomputations', () => {
+          const selectorCreator = trackSelectorCreator();
+
           const cachedSelector = createCachedSelector(
             [(state: string, param1: string) => null],
             () => {},
-          )({ keySelector: (state, param1) => param1 });
+          )({ selectorCreator, keySelector: (state, param1) => param1 });
           cachedSelector('foo', 'bar');
           cachedSelector('foo', 'moo');
           cachedSelector('foo', 'bar');
           cachedSelector('foo', 'moo');
 
-          expect(reselect.createSelector).toHaveBeenCalledTimes(2);
+          expect(selectorCreator).toHaveBeenCalledTimes(2);
           expect(cachedSelector.recomputations()).toBe(2);
         });
       });
@@ -414,7 +427,9 @@ describe('createCachedSelector', () => {
             expect(cachedSelector('foo')).toBe('foo');
 
             expect(cachedSelector('bar')).toBe(undefined);
-            expect(console.warn).toHaveBeenCalledTimes(1);
+            expect(console.warn).toHaveBeenCalledWith(
+              '[re-reselect] Invalid cache key "bar" has been returned by keySelector function.',
+            );
           });
         });
       });
@@ -697,7 +712,7 @@ describe('createCachedSelector', () => {
         )({
           keySelector: (state, param1) => param1,
           cacheObject: new FlatObjectCache(),
-          selectorCreator: reselect.createSelector,
+          selectorCreator: createSelector,
         });
 
         expect(cachedSelector.recomputations()).toBe(0);
@@ -816,23 +831,31 @@ describe('createCachedSelector', () => {
       memoizeOptions: { resultEqualityCheck: () => true },
     };
 
+    const selectorCreator = trackSelectorCreator();
+
     const cachedSelector = createCachedSelector(
       [inputSelector1],
       () => {},
       createSelectorOptions,
-    )({ keySelector: (state, param1) => param1 });
+    )({ selectorCreator, keySelector: (state, param1) => param1 });
 
     cachedSelector('foo', 'bar');
     cachedSelector('foo', 'bar');
 
-    expect(reselect.createSelector).toHaveBeenCalledTimes(1);
-    expect(reselect.createSelector).toHaveBeenCalledWith(
-      [inputSelector1],
-      expect.any(Function),
-      // The caller's options are merged over the instance defaults rather than
-      // replacing them, so `argsMemoize` arrives alongside whatever was passed.
-      { argsMemoize: lruMemoize, ...createSelectorOptions },
-    );
+    expect(selectorCreator).toHaveBeenCalledTimes(1);
+
+    const [inputSelectors, resultFunc, forwardedOptions] =
+      selectorCreator.mock.calls[0]!;
+
+    expect(inputSelectors).toEqual([inputSelector1]);
+    expect(resultFunc).toBeTypeOf('function');
+    // The caller's options are merged over the instance defaults rather than
+    // replacing them, so `argsMemoize` arrives alongside whatever was passed.
+    // It is matched by name: the CJS and UMD bundles require reselect's CJS
+    // build while this file imports its ESM one, so the two `lruMemoize`
+    // references are not the same object.
+    expect(forwardedOptions).toMatchObject(createSelectorOptions);
+    expect(forwardedOptions.argsMemoize.name).toBe(lruMemoize.name);
 
     expect(cachedSelector.recomputations()).toBe(1);
   });
@@ -840,13 +863,15 @@ describe('createCachedSelector', () => {
   it('lets createSelectorOptions override the default argsMemoize', () => {
     const inputSelector = (state: string, param1: string) => null;
 
+    const selectorCreator = trackSelectorCreator();
+
     const cachedSelector = createCachedSelector([inputSelector], () => {}, {
       argsMemoize: weakMapMemoize,
-    })({ keySelector: (state, param1) => param1 });
+    })({ selectorCreator, keySelector: (state, param1) => param1 });
 
     cachedSelector('foo', 'bar');
 
-    expect(reselect.createSelector).toHaveBeenCalledWith(
+    expect(selectorCreator).toHaveBeenCalledWith(
       [inputSelector],
       expect.any(Function),
       { argsMemoize: weakMapMemoize },
