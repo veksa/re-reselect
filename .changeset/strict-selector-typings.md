@@ -14,6 +14,8 @@ The runtime API is unchanged. re-reselect still exports the same two factories (
 - A missing `keySelector` now throws when the selector is created, not on the first call. `createCachedSelector(...)({ cacheObject })` used to build a selector that threw a `TypeError` only when called. Now the factory throws `[re-reselect] Missing "keySelector"`. Selectors usually live at module scope, so a selector already broken this way now fails at import time.
 - re-reselect passes an invalid `cacheKey` through `String()` before writing the warning. Previously a `symbol` cacheKey made the warning itself throw a `TypeError`.
 - The cache lookup treats any falsy value returned by a custom `cacheObject.get()` as a miss, rather than only `undefined`. A cache object that returns `null` for a miss now works instead of crashing.
+- Selector instances default to a size-1 argument cache rather than reselect's `weakMapMemoize`; pass `argsMemoize` explicitly to restore the previous behaviour. Recomputation counts are unaffected.
+- The returned selector function is named `selector` (`fn.name` was previously `''`).
 
 ### Type changes
 
@@ -21,9 +23,9 @@ The inferred type layer is stricter. Most of the changes below show up as compil
 
 - Explicit type arguments no longer match. The per-arity generics (`createCachedSelector<S, R1, T>`, `createCachedSelector<S, P, R1, R2, T>`, `createStructuredCachedSelector<M, S, P>`, …) are gone. `createCachedSelector` now takes `<InputSelectors, Result>` and `createStructuredCachedSelector` takes `<InputSelectorsObject>`, so old calls fail with `TS2558`. Drop the type arguments and annotate `state` and params on the input selectors, or pass the new type arguments (`createCachedSelector<[typeof selectA, typeof selectB], Result>(…)`).
 - The cached selector's call signature is now inferred from the input selectors, instead of `(state, props, ...args: any[])`. reselect's `MergeParameters` merges the input selectors' parameters position by position. TypeScript now rejects excess arguments and missing arguments that an input selector declares. If two input selectors declare incompatible types at the same position, that argument becomes `never`. `getMatchingSelector` and `removeMatchingSelector` take the same arguments.
-- An inline input selector without a `state` annotation, mixed with annotated ones, now infers `state` as `any`, and that `any` reaches the combiner and the result. The previous hand-written `.d.ts` inferred it from the other input selectors. This is the same inference reselect v5's `createSelector` does. Annotate `state` on every inline input selector, or use `createCachedSelector.withTypes<State>()` with input selectors passed as an array.
+- **Mixing annotated and unannotated inline input selectors is now a compile error.** reselect v5 cannot contextually type an inline input selector while it is still inferring the input tuple, so `[(state: State) => state.foo, (state) => state.foo]` resolved the second `state` to `any` and propagated that `any` into the combiner arguments and the selector's result. The hand-written per-arity `.d.ts` typed those correctly, so the migration would have silently dropped type safety with no diagnostic at all. The factory now degrades to a one-parameter function whose parameter type is the explanation (`ImplicitAnyStateError`), so the compiler prints the fix. Annotate `state` on every input selector, or use `createCachedSelector.withTypes<State>()`. A uniformly-`any` selector list is still accepted — that shape is a deliberate opt-out.
 - `getMatchingSelector()` is now typed as returning `OutputSelector<…> | undefined` instead of `OutputSelector<…>`. It has always returned `undefined` at runtime when no selector is cached for the given arguments (not called yet, removed with `removeMatchingSelector`/`clearCache`, or evicted by a size-limited cache). With `strictNullChecks`, check the result or use optional chaining: `selector.getMatchingSelector(state, id)?.recomputations()`.
-- The `keySelector` parameter list is now inferred from the input selectors (`(state, ...params)`) instead of the permissive `(state, ...args: any[])`. A `keySelector` that reads an extra argument not declared by any input selector no longer type-checks. This is the "cache dimension supplied via `keySelector` only" pattern. Express the dimension as a parametric input selector (`(state, id) => id`) so it flows into both the call signature and the `keySelector`. Runtime behavior is unchanged.
+- The `keySelector` parameter list is now inferred from the input selectors, so it is checked instead of being `(state, ...args: any[])`. Params the input selectors declare are typed for you; a `keySelector` may still declare **extra** params of its own (re-reselect's "cache dimension supplied via `keySelector` only" pattern), and those flow into the selector's own call signature and into `getMatchingSelector`/`removeMatchingSelector`. An extra param you annotate keeps that type; one you leave unannotated is `unknown`, so its uses are checked rather than silently allowed. Arguments that no input selector and no `keySelector` declares are rejected, as is a `keySelector` param contradicting one an input selector declares.
 - `keySelectorCreator` now receives `keySelector` as an optional property (`keySelector?: TypedKeySelector<InputSelectors>`), because it is absent when `keySelectorCreator` is used on its own. Existing creators that call it directly need a guard or a non-null assertion:
 
   ```ts
@@ -37,18 +39,20 @@ The inferred type layer is stricter. Most of the changes below show up as compil
       keySelector?.(state, id) ?? id;
   ```
 
-- The keySelector returned by `keySelectorCreator` is now typed `TypedKeySelector<InputSelectors>` instead of `(state, ...args: any[]) => any`, so it follows the same rule as `keySelector` and can't read an argument no input selector declares. With input selectors taking `(state, id)`, a creator returning `(state, id, page) => …` no longer type-checks. Move `page` into a parametric input selector.
+- The keySelector returned by `keySelectorCreator` is now typed `TypedKeySelector<InputSelectors>` instead of `(state, ...args: any[]) => any`, so, unlike a `keySelector` passed directly, it can't declare an argument no input selector declares. With input selectors taking `(state, id)`, a creator returning `(state, id, page) => …` no longer type-checks. Move `page` into a parametric input selector.
+- The cached selector no longer advertises reselect `OutputSelector` members it never attaches at runtime (`memoizedResultFunc`, `lastResult`, `dependencyRecomputations`, `resetDependencyRecomputations`, `memoize`, `argsMemoize`). Reading them used to type-check and then crash. They are still present on the selector `getMatchingSelector` returns, which genuinely is a reselect selector.
+- **A `withTypes<State>()` creator now rejects the variadic form of input selectors**, accepting only the array form. reselect v5 cannot apply the contextual state and infer the input tuple out of a variadic rest at the same time, so `createCachedSelector.withTypes<State>()(fn, fn, combiner)` type-checked while silently collapsing the combiner arguments to `never`. That is now "No overload matches this call", pointing at the array form that does work. Plain `createCachedSelector` (no `withTypes`) still accepts both forms.
 - `createStructuredCachedSelector` with a very large selectors object (roughly 50+ keys) may fail to type-check with `TS2589` "Type instantiation is excessively deep". reselect v5's own `createStructuredSelector` has the same limit, because both derive a tuple from the object type. The old hand-written `.d.ts` avoided it with non-recursive mapped types. Runtime behavior is unchanged. Split the object into smaller structured selectors, or compose plain `createCachedSelector` calls.
 
 ### Removed and changed type exports
 
-Several exported types were removed or changed. Most mirrored reselect's own types; import those from `reselect`, which is a peer dependency.
+Several exported types were removed or changed. Most mirrored reselect's own types; import those from `@veksa/reselect`, which is a peer dependency.
 
-**Removed. Import from `reselect` instead:**
+**Removed. Import from `@veksa/reselect` instead:**
 
 ```ts
 // before: import type { Selector, OutputSelector } from 're-reselect';
-import type { OutputSelector, Selector } from 'reselect';
+import type { OutputSelector, Selector } from '@veksa/reselect';
 ```
 
 `Selector`, `OutputSelector`, and `CreateSelectorInstance` (use reselect's `CreateSelectorFunction`).
@@ -93,7 +97,7 @@ const selectUser: OutputCachedSelector<
 
 The package now ships a standard `exports` map with separate `import` (ESM) and `require` (CJS) conditions, each pointing at its own type declarations.
 
-- **The `reselect` peer dependency is now `^5.1.0`.** The generated types import `SelectorsObject`, `SelectorResultsMap` and the generic `SelectorArray<State>` / `CreateSelectorFunction<..., StateType>`, which reselect 5.0.x doesn't export. Runtime still works with 5.0.x.
+- **The peer dependency is now `@veksa/reselect` `^5.2.2`**, a drop-in fork of reselect v5.
 - **Deep imports into `dist` are no longer resolvable.** The package exposes only its root (`re-reselect`) and `re-reselect/package.json`. Import from the package root instead of paths like `re-reselect/dist/...`.
 - **The UMD build and the `browser` field have been removed.** re-reselect no longer ships a `dist/umd/` bundle (reselect v5 dropped its own UMD build too). Any consumer loading re-reselect straight from a CDN via a `<script>` tag (`unpkg`, jsDelivr) or resolving the old `browser` field must switch to the ESM or CJS build. Use an ESM CDN such as `https://esm.sh/re-reselect`, or bundle re-reselect as part of an app build.
 - **The ESM build is now `dist/es/index.mjs`** (was `dist/es/index.js`), reached through the `import` condition, so native Node ESM loads it as a real ES module.

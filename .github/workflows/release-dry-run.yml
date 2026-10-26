@@ -25,17 +25,20 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
+      - run: corepack enable
+
       - uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .nvmrc
+          cache: 'yarn'
 
-      - run: npm ci --ignore-scripts
+      - run: yarn install --immutable --mode=skip-build
 
       # Same build/test/checks a real release runs before publishing
-      - run: npm run prepare
+      - run: yarn verify
 
       - name: Show changesets publish plan
-        run: npx changeset publish-plan
+        run: yarn changeset publish-plan
 
       - name: Dry-run npm publish
         run: npm publish --dry-run

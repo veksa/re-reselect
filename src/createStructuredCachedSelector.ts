@@ -2,7 +2,7 @@ import {
   type SelectorResultsMap,
   type SelectorsObject,
   createStructuredSelector,
-} from 'reselect';
+} from '@veksa/reselect';
 
 import { createCachedSelector } from './createCachedSelector';
 import type { SelectorsObjectToTuple } from './typeUtils';
