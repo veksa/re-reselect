@@ -468,6 +468,7 @@ Runtime and packaging:
 - `resetRecomputations()` returns `undefined`. Read the count with `recomputations()`.
 - A missing `keySelector` throws when the selector is created, not on its first call.
 - Any falsy value returned by a custom `cacheObject.get()` counts as a cache miss.
+- Selector instances default to a size-1 argument cache (`lruMemoize`) instead of reselect's `weakMapMemoize`. Pass `argsMemoize` in the selector options to change it.
 - The UMD bundle is gone: use an ESM CDN such as `https://esm.sh/re-reselect`, or bundle re-reselect. Deep imports like `re-reselect/dist/...` no longer resolve.
 - In native Node ESM, `import reReselect from 're-reselect'` fails: use named imports or `import * as`.
 - The bundles use ES2020 syntax (ES2019 for the `module` entry). Transpile `node_modules` if you target older engines.
@@ -475,11 +476,11 @@ Runtime and packaging:
 TypeScript:
 
 - Explicit type arguments like `createCachedSelector<S, R1, T>(…)` fail with `TS2558`. Drop them and annotate the input selectors, or pass `<[typeof selectA, typeof selectB], Result>`.
-- Selector arguments are inferred from the input selectors. Extra or missing arguments are rejected, and so is a `keySelector` reading an argument no input selector declares. Add a parametric input selector such as `(state, id) => id` for that argument.
-- An inline input selector without a `state` annotation infers `state` as `any`, as in reselect v5. Annotate it, or use `withTypes` with an array of input selectors.
+- Selector arguments are inferred from the input selectors. Extra or missing arguments are rejected. A `keySelector` may declare arguments no input selector reads: they become part of the selector's own signature.
+- Mixing annotated and unannotated inline input selectors is a compile error (`ImplicitAnyStateError`), since reselect v5 would infer the unannotated `state` as `any`. Annotate every input selector, or use `withTypes`. A `withTypes` creator only accepts input selectors as an array.
 - `getMatchingSelector` is typed as returning `OutputSelector | undefined`, as it already did at runtime on a cache miss. Check the result or use `?.`.
 - `keySelectorCreator` receives `keySelector` as optional. Check it before calling it.
-- `Selector` and `OutputSelector` are no longer exported: import them from `reselect`. `CreateSelectorInstance` is gone too: use reselect's `CreateSelectorFunction`. The `Parametric*` types are gone: write `ParametricSelector<S, P, R>` as `Selector<S, R, [P]>`.
+- `Selector` and `OutputSelector` are no longer exported: import them from `@veksa/reselect`. `CreateSelectorInstance` is gone too: use reselect's `CreateSelectorFunction`. The `Parametric*` types are gone: write `ParametricSelector<S, P, R>` as `Selector<S, R, [P]>`.
 - `OutputCachedSelector<InputSelectors, Result>` now types the cached selector, not the factory returned by `createCachedSelector(...)`. Annotate the selector instead.
 - `KeySelectorCreator<InputSelectors, Result>` takes the input selectors instead of the state type.
 - A `createStructuredCachedSelector` call with a very large selectors object (roughly 50+ keys) can fail with `TS2589`. Split it into smaller ones.
